@@ -1,0 +1,38 @@
+{
+  "name": "@rik/mvsep-client",
+  "version": "0.1.0",
+  "description": "Resilient TypeScript client for the MVSep API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepack": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  },
+  "keywords": [
+    "mvsep",
+    "audio",
+    "stem-separation",
+    "typescript",
+    "bun"
+  ],
+  "license": "MIT"
+}
