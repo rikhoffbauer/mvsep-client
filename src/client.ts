@@ -108,9 +108,7 @@ function isUnauthorizedPayload(payload: unknown): boolean {
 function toBlob(part: BinaryPart): Blob {
   if (part.data instanceof Blob) return part.data;
   if (part.data instanceof Uint8Array) {
-    const bytes = part.data.byteOffset === 0 && part.data.byteLength === part.data.buffer.byteLength
-      ? part.data.buffer
-      : part.data.slice().buffer;
+    const bytes = Uint8Array.from(part.data).buffer;
     return new Blob([bytes], part.contentType ? { type: part.contentType } : undefined);
   }
   return new Blob([part.data], part.contentType ? { type: part.contentType } : undefined);
