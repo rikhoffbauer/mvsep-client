@@ -12,7 +12,11 @@ const queue = await client.getQueueSummary();
 console.log(queue.estimated_wait_seconds); // null means unknown
 ```
 
-Additional read methods: `getQueue()`, `getSeparationHistory({ start, limit })`, `getPurchases({ status, offset, limit })` and `getCreditAlert()`.
+Additional read methods: `getQueue()`, `getSeparationHistory({ start, limit })`, `getPurchases({ status, offset, limit })` and `getCreditAlert()`. See the [complete account inspection example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/account-inspection.ts).
+
+:::caution[Multiple keys and billing]
+Unbound account reads such as `getUser()` rotate keys; `createGuardedSeparation` cannot promise the balance just read belongs to the key later selected for the paid POST. Use **one client per account** for reliable account-specific credit checks. See [API key rotation](/mvsep-client/guides/api-key-rotation/).
+:::
 
 ## Estimate credits
 
@@ -47,6 +51,8 @@ const created = await client.createGuardedSeparation(
   },
 );
 ```
+
+The [offline credit-guard example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/credit-guards.ts) verifies unknown prices, over-budget input, insufficient credit balance and a disabled Premium flag **without creating a real job**.
 
 The guard rejects unknown prices, insufficient account balance and an estimate above the provided cap. Account balance is checked immediately before submission but is **not** reserved or locked: concurrent workloads may still spend credits. The upstream API determines the final bill.
 

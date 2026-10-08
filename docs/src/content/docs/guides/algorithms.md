@@ -47,6 +47,17 @@ const leaderboard = await client.getQualityLeaderboard({
 const entry = await client.getQualityEntry(42);
 ```
 
+More read-only API examples:
+
+```ts
+const news = await client.getNews({ lang: 'en', limit: 5 });
+const qualityQueue = await client.getQualityQueue({ start: 0, limit: 10 });
+console.log(news.length, qualityQueue.length);
+await client.invalidateAlgorithms('single_upload'); // clear cached metadata (if configured)
+```
+
+The [runnable discovery example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/discover-algorithms.ts) walks through current model identifiers and cost estimates without needing API credentials.
+
 Quality benchmark results are contextual reference data, not guaranteed separation quality for an arbitrary song.
 
 ## Cache snapshots

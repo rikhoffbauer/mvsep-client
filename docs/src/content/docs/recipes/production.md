@@ -6,13 +6,13 @@ description: Operating the SDK safely with real credentials and paid jobs.
 ## Before enabling unattended submissions
 
 1. **Configure credentials securely.** Use secret storage; never log tokens or serialize full raw account responses.
-2. **Use conservative create retries.** Keep `unsafeCreateRetries: 'safe'`; do not aggressively retry uncertain POST outcomes.
-3. **Persist job intent.** Store stable account identifiers and accepted hashes; use a write-ahead marker for batch jobs.
-4. **Budget by estimate.** Reject unknown prices; account balances are not reservations.
-5. **Separate server-job and HTTP concurrency.** The SDK semaphore controls transport, not remote GPU quota.
-6. **Stream outputs.** Prefer `downloadToFile` or `downloadToStream` over buffering large files.
-7. **Reconcile partial work.** Check terminal states, output manifests and webhook/polling records.
-
+2. **Use a separate one-key client for each payer.** Rotating keys are fine for independent requests, but account billing checks are not pinned to an upcoming paid POST. See [API key rotation](/mvsep-client/guides/api-key-rotation/).
+3. **Use conservative create retries.** Keep `unsafeCreateRetries: 'safe'`; do not aggressively retry uncertain POST outcomes.
+4. **Persist job intent.** Store stable account identifiers and accepted hashes; use a write-ahead marker for batch jobs.
+5. **Budget by estimate.** Reject unknown prices; account balances are not reservations.
+6. **Separate server-job and HTTP concurrency.** The SDK semaphore controls transport, not remote GPU quota.
+7. **Stream outputs.** Prefer `downloadToFile` or `downloadToStream` over buffering large files.
+8. **Reconcile partial work.** Check terminal states, output manifests and webhook/polling records.
 ## Error handling
 
 ```ts

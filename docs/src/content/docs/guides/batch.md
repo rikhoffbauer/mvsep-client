@@ -25,6 +25,8 @@ const results = await runBatch(client, [
 });
 ```
 
+For a complete, typechecked implementation of a filesystem-backed checkpoint store with atomic writes, see [`batch-jobs.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/batch-jobs.ts). It deliberately requires `MVSEP_ALLOW_PAID=1` to run.
+
 `checkpointStore` implements asynchronous `load(): Promise<MvsepJobHandle[]>` and `save(handles): Promise<void>` methods. Use atomic or transactional writes.
 
 ## Crash consistency

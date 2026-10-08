@@ -25,4 +25,6 @@ description: What the SDK does and how it approaches paid job safety.
 
 **No hidden spend.** Budget guardrails are opt-in and fail closed on unknown prices. Premium usage is never automatically enabled.
 
+See the [API key rotation guide](/mvsep-client/guides/api-key-rotation/) for multi-account setups.
+
 Start with [installation](/mvsep-client/start/installation/) and [quick start](/mvsep-client/start/quickstart/).

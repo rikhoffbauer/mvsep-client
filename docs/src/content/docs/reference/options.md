@@ -34,7 +34,7 @@ interface RetryOptions {
 }
 ```
 
-Default retryable status codes: 408, 425, 429, 500, 502, 503 and 504. The safe create policy only replays explicit 429 rejections. An aggressive replay risks duplicate paid work.
+Default retryable status codes: 408, 425, 429, 500, 502, 503 and 504. The safe create policy retries explicit 429 rejections or authentication rejections (401/invalid token); it does not replay ambiguous transport failures or 5xx responses. See [API key rotation](/mvsep-client/guides/api-key-rotation/). An aggressive replay risks duplicate paid work.
 
 ## `RateLimitOptions`
 

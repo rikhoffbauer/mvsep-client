@@ -94,3 +94,121 @@ Transfer options include `timeoutMs`, `signal`, `maxBytes`, `maxAttempts` and a 
 | `watchJob(hash, options?)` | `AsyncGenerator<JobWatchEvent>` |
 
 See [recovery](/mvsep-client/guides/recovery/) and [polling](/mvsep-client/guides/polling/).
+
+## Complete usage examples
+
+### Single-file convenience helper
+
+```ts
+const created = await client.createSeparationFromFile('song.wav', {
+  sepType: 20,
+  outputFormat: 1,
+});
+const hash = created.data?.hash;
+if (!hash) throw new Error('No job hash returned');
+console.log('Job:', hash);
+```
+
+The helper opens a disk-backed file instead of reading the entire file into memory. **Submitting a job can incur charges.** Discover current algorithm IDs first.
+
+### Check, poll, cancel or delete a job
+
+```ts
+const result = await client.getSeparation(hash);
+console.log(result.status, result.data?.queue_count);
+
+const terminal = await client.waitForSeparation(hash, {
+  intervalMs: 2_000,
+  maxWaitMs: 30 * 60_000,
+  onProgress(event) {
+    if (event.type === 'poll') console.log(event.status, event.fraction ?? 'unknown');
+  },
+});
+console.log('Terminal:', terminal.status);
+
+// These are explicit remote mutations — do NOT perform them merely to poll:
+// await client.cancelSeparation(hash);
+// await client.deleteSeparation(hash);
+```
+
+`getRemoteSeparation(hash)` queries MVSep's remote endpoint; `getSeparation(hash, { mirror: true })` requests a mirror using an API key and **costs one credit**, so it is never called implicitly.
+
+### Use the raw request interface for an unwrapped endpoint
+
+```ts
+import type { ApiEnvelope, MvsepUser } from '@rikhoffbauer/mvsep-client';
+
+const response = await client.request<ApiEnvelope<MvsepUser>>({
+  method: 'GET', path: '/app/user', authenticated: true,
+  idempotent: true, timeoutMs: 15_000,
+});
+// Do not log response.data wholesale: raw account payloads may include secrets.
+console.log(response.success, response.data?.name);
+```
+
+`request<T>()` does **not** unwrap the envelope. Declare a response shape matching the endpoint. The SDK prohibits callers from overriding `api_token` on authenticated requests.
+
+### Trace selected keys and manually bind an existing hash
+
+```ts
+const client = new MvsepClient({
+  apiKeys: [process.env.MVSEP_KEY_A!, process.env.MVSEP_KEY_B!],
+  onProgress(event) {
+    if (event.type === 'request' && event.phase === 'start') {
+      console.log(event.path, 'key index:', event.keyIndex);
+    }
+  },
+});
+client.bindJobToApiKey('existing-job-hash', 1);
+const keyIndex = client.getJobApiKeyIndex('existing-job-hash');
+const status = await client.getSeparation('existing-job-hash');
+console.log(keyIndex, status.status);
+client.forgetJobApiKey('existing-job-hash'); // only removes local affinity
+```
+
+For round-robin/sticky comparisons, error failover and a mock that never makes network requests, see [API key rotation](/mvsep-client/guides/api-key-rotation/).
+
+### Stream all statuses and optional queue updates
+
+```ts
+for await (const event of client.watchJob(hash, {
+  includeQueue: true,
+  queueIntervalMs: 10_000,
+  maxWaitMs: 30 * 60_000,
+})) {
+  if (event.type === 'status') console.log(event.result.status);
+  if (event.type === 'queue') console.log(event.summary.estimated_wait_seconds ?? 'unknown');
+  if (event.type === 'complete') console.log(event.result.data?.files);
+}
+```
+
+### Inspect account and algorithm endpoints
+
+```ts
+const [user, history, purchases, queue] = await Promise.all([
+  client.getUser(),
+  client.getSeparationHistory({ start: 0, limit: 10 }),
+  client.getPurchases({ offset: 0, limit: 10 }),
+  client.getQueueSummary(),
+]);
+console.log({ credits: user.premium_minutes, jobs: history.length,
+  purchases: purchases.total, queue: queue.queued });
+
+const algorithms = await client.getAlgorithms('single_upload');
+const first = algorithms[0];
+if (first) {
+  const model = await client.getAlgorithm(first.render_id);
+  console.log(model.name, (await client.estimateJobCredits({
+    algorithm: model, durationSeconds: 180,
+  })).estimatedCredits ?? 'unknown');
+}
+```
+
+Account reads are not tied to a job hash. **Use a separate one-key client for each account** when balances or preferences must refer to a specific payer.
+
+### More API examples
+
+- [Discovery and pricing](/mvsep-client/guides/algorithms/): algorithms, options, demos, quality leaderboard and cache invalidation.
+- [Credit safety](/mvsep-client/guides/credits/): cost caps, account preferences and read-only account endpoints.
+- [Batch and checkpoints](/mvsep-client/guides/batch/): concurrent workers, pause/resume and duplicate prevention.
+- [Example gallery](/mvsep-client/recipes/example-gallery/): complete runnable files for these workflows, including offline mocks.

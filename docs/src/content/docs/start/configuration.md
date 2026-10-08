@@ -37,7 +37,7 @@ The default endpoint is `https://mvsep.com/api`. Set `region` to `apex`, `de`, `
 
 ## Authentication
 
-Pass `apiKeys` as one string or an array. Keys rotate using round-robin (default) or sticky selection; rejected keys can be disabled, and rate-limited keys are cooled down. The selected key is pinned in memory to a job hash for account-bound follow-ups. For durable recovery with multiple keys, supply a stable, non-secret `keyIdentifiers` array matching the configured keys.
+Pass `apiKeys` as one string or an array. Keys rotate using round-robin (default) or sticky selection; rejected keys can be disabled, and rate-limited keys are cooled down. The selected key is pinned in memory to a job hash for account-bound follow-ups. For durable recovery with multiple keys, supply a stable, non-secret `keyIdentifiers` array matching the configured keys. Read the **[API key rotation guide](/mvsep-client/guides/api-key-rotation/)** for concrete examples of selection, `401`/`429` failover, cooldowns, job-bound calls, and restart-safe recovery.
 
 ## Rate limits
 
@@ -48,7 +48,7 @@ Pass `apiKeys` as one string or an array. Keys rotate using round-robin (default
 | `unsafeCreateRetries` | Create-job retry behavior |
 | --- | --- |
 | `never` | Never retry a create, even after a 401. |
-| `safe` (default) | Only retry an explicit HTTP 429 rejection. |
+| `safe` (default) | Retry explicit HTTP 429 or authentication rejection (401/invalid token); never retry ambiguous transport/5xx failures. |
 | `aggressive` | Retry other transport/status errors; **may create duplicate paid jobs**. |
 
 Idempotent requests use the regular retry policy, backoff and `Retry-After`. Use `onProgress` for structured request/retry/rotation events. Observer exceptions are isolated and do not reclassify a successful create as a failed one.

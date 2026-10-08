@@ -47,6 +47,23 @@ if (manifest.errors.length) console.error(manifest.errors);
 
 You can pass a `SeparationResult` or a job hash. Files are processed sequentially, named safely, and duplicates get deterministic suffixes. Results may represent preset output nodes: **do not assign stem labels from filename order**.
 
+## Write to a Node.js output stream
+
+```ts
+import { createWriteStream } from 'node:fs';
+import { Writable } from 'node:stream';
+import { mkdir } from 'node:fs/promises';
+
+await mkdir('./stems', { recursive: true });
+const stream = Writable.toWeb(createWriteStream('./stems/custom.wav')) as WritableStream<Uint8Array>;
+const receipt = await client.downloadToStream(outputUrl, stream, {
+  maxBytes: 8 * 1024 ** 3,
+});
+console.log(receipt.loaded);
+```
+
+**Important:** unlike `downloadToFile`, this caller-provided stream writes directly to the destination and may leave partial data on failure. For most disk downloads, prefer the atomic file helper. See [`download-job.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/download-job.ts) for a full CLI-style example.
+
 ## Buffer smaller files
 
 ```ts

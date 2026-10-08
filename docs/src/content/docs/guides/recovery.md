@@ -30,6 +30,8 @@ const result = await client.waitForJob(restoredHandle, {
 });
 ```
 
+The [offline affinity example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/key-affinity.ts) demonstrates the entire flow without remote requests, including reordering keys on restart.
+
 A restored job calls `GET /separation/get` using the appropriate account key. It does not call `POST /separation/create`. Key **indexes** are not safe durable identifiers because key order may change; supply `keyIdentifiers` for multi-key configurations.
 
 ## Save or restore many handles

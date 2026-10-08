@@ -28,6 +28,19 @@ mvsep batch batch.json
 
 For structured output add `--json`. Failed commands exit nonzero; validation failures generally exit with code 2.
 
+## Configure multiple keys in the CLI
+
+```bash
+export MVSEP_API_KEYS='api-token-A,api-token-B'
+export MVSEP_KEY_IDS='account-A,account-B'
+mvsep models
+mvsep submit --url https://example.com/song.wav --algorithm 20 --handle job.json
+# Later, even after a restart, the handle identifies the originating account:
+mvsep resume job.json
+```
+
+The CLI uses the SDK's **default round-robin** rotation for unbound authenticated requests. `models` is a public algorithm read and does not consume a key; `submit` is a possibly billable POST. A saved handle keeps the originating stable account ID. For configuring `sticky` instead of round-robin, or for precise per-account billing, use the [TypeScript client](/mvsep-client/guides/api-key-rotation/).
+
 ## Environment
 
 | Variable | Description |

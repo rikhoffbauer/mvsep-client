@@ -72,3 +72,60 @@ diagnostics.clear();
 ```
 
 Records are bounded and omit credentials, raw URLs, files and response bodies. Subscribers' exceptions do not affect SDK operations.
+
+## Complete cache example: reuse verified local stems
+
+```ts
+const cache = new LocalArtifactCache('./.mvsep-artifacts');
+const modelRevision = 'vocal-separation-model-revision-1';
+const accountId = 'studio-account';
+const { key, inputHash } = await cache.keyForFile('./song.wav', {
+  modelRevision, accountId,
+  separation: { sepType: 20, outputFormat: 1 },
+});
+
+const previous = await cache.lookup(key);
+if (previous) {
+  console.log('Reusing SHA-256 verified outputs:', previous.outputs);
+} else {
+  // Perform a new job ONLY after explicitly authorizing the expense.
+  // Given an already completed job and downloaded output paths:
+  // await cache.record({ key, inputHash, modelRevision, accountId,
+  //                      paths: ['./stems/vocals.wav', './stems/instrumental.wav'] });
+}
+```
+
+The [fully runnable local-cache example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/local-artifact-cache.ts) records and verifies artifacts, then deliberately modifies an output file to demonstrate rejection of a stale entry—without any API call.
+
+The model revision and account label are **caller-provided** cache identity components, not inferred from the upstream API. Invalid or missing output files fail cache lookup. The SDK cannot guarantee the remote API will deduplicate the same input.
+
+## Complete option-validation example
+
+```ts
+const algorithm = await client.getAlgorithm(20);
+const prepared = client.prepareSeparation({
+  algorithm,
+  input: { url: 'https://example.com/song.wav' },
+  fields: {}, // read algorithm.algorithm_fields for valid keys and labels
+});
+client.validateSeparation(prepared.input, algorithm, {
+  strict: true, registered: true, premium: true,
+});
+console.log(prepared.input);
+// Creation is explicit, and may incur charges:
+// await client.createSeparation(prepared.input);
+```
+
+## Complete diagnostics example
+
+See [`offline-diagnostics.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/offline-diagnostics.ts) for a **runnable, zero-credit** test of subscriptions, progress-event recording and clearing the bounded event buffer. [API key rotation](/mvsep-client/guides/api-key-rotation/) demonstrates observing `keyIndex` and `key_rotation` separately.
+
+## All optional subpaths
+
+| Module | Examples | Purpose |
+| --- | --- | --- |
+| `@rikhoffbauer/mvsep-client/batch` | [`batch-jobs.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/batch-jobs.ts) | Batch jobs, write-ahead checkpoints, pause/resume |
+| `@rikhoffbauer/mvsep-client/local-cache` | Cache example above | SHA-256-based local artifact integrity |
+| `@rikhoffbauer/mvsep-client/diagnostics` | [`offline-diagnostics.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/offline-diagnostics.ts) | Privacy-minded structured telemetry |
+| `@rikhoffbauer/mvsep-client/webhooks` | [`webhook-server.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/webhook-server.ts) | Parse/verify/deduplicate webhook notifications |
+| `@rikhoffbauer/mvsep-client/metadata-cache` | [`metadata-and-cache.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/metadata-and-cache.ts) | TTL model metadata snapshots |

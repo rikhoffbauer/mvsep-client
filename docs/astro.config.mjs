@@ -22,6 +22,7 @@ export default defineConfig({
           { slug: 'start/configuration' },
         ] },
         { label: 'Guides', items: [
+          { slug: 'guides/api-key-rotation' },
           { slug: 'guides/algorithms' },
           { slug: 'guides/submissions' },
           { slug: 'guides/polling' },
@@ -40,6 +41,7 @@ export default defineConfig({
           { slug: 'reference/utilities' },
         ] },
         { label: 'Recipes & operations', items: [
+          { slug: 'recipes/example-gallery' },
           { slug: 'recipes/end-to-end' },
           { slug: 'recipes/production' },
           { slug: 'recipes/troubleshooting' },

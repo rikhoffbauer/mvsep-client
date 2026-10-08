@@ -68,6 +68,8 @@ Create requests can consume credits. Default retries do not replay ambiguous cre
 
 ## Next steps
 
+The [example gallery](/mvsep-client/recipes/example-gallery/) includes complete, typechecked programs for each major workflow. Use [API key rotation](/mvsep-client/guides/api-key-rotation/) when configuring multiple credentials.
+
 - [Algorithm metadata](/mvsep-client/guides/algorithms/): determine the right model and its options.
 - [Upload and submission modes](/mvsep-client/guides/submissions/): URLs, presets and no-upload models.
 - [Crash recovery](/mvsep-client/guides/recovery/): resume a long-running job after restarting your app.

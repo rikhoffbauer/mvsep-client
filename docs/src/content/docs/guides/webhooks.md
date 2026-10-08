@@ -18,6 +18,8 @@ const notification = await receiver.receive(
 if (!notification.duplicate) console.log(notification.result);
 ```
 
+A [complete Node HTTP example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/webhook-server.ts) demonstrates bearer authentication, bounded request bodies, known-hash correlation, authenticated verification, deduplication and TLS-proxy requirements.
+
 ## Critical security considerations
 
 - **Treat the entire incoming payload as untrusted.** The API documentation does not define a signed webhook verification scheme. Protect the HTTP route yourself (secret path, gateway authentication or equivalent).
