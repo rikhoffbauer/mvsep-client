@@ -1,5 +1,5 @@
 {
-  "name": "@rik/mvsep-client",
+  "name": "@rikhoffbauer/mvsep-client",
   "version": "0.1.0",
   "description": "Resilient TypeScript client for the MVSep API",
   "type": "module",
@@ -9,22 +9,32 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./batch": { "types": "./dist/batch.d.ts", "import": "./dist/batch.js" },
+    "./local-cache": { "types": "./dist/local-cache.d.ts", "import": "./dist/local-cache.js" },
+    "./diagnostics": { "types": "./dist/diagnostics.d.ts", "import": "./dist/diagnostics.js" },
+    "./webhooks": { "types": "./dist/webhooks.d.ts", "import": "./dist/webhooks.js" },
+    "./metadata-cache": { "types": "./dist/metadata-cache.d.ts", "import": "./dist/metadata-cache.js" }
   },
+  "bin": { "mvsep": "./dist/cli.js" },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",
-    "prepack": "npm run build"
+    "prepare": "npm run build",
+    "test:coverage": "npm run build && node --experimental-test-coverage --test test/*.test.mjs",
+    "smoke:package": "node scripts/smoke-package.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@types/node": "^20",
     "typescript": "^5.9.0"
   },
   "keywords": [

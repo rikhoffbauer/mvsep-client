@@ -19,6 +19,15 @@ export class ApiKeyPool {
 
   constructor(keys: readonly string[], options: KeyRotationOptions = {}) {
     const cleaned = [...new Set(keys.map((key) => key.trim()).filter(Boolean))];
+    for (const [name, value] of Object.entries({
+      rateLimitCooldownMs: options.rateLimitCooldownMs ?? 30_000,
+      transientFailureCooldownMs: options.transientFailureCooldownMs ?? 5_000,
+    })) {
+      if (!Number.isFinite(value) || value < 0)
+        throw new RangeError(name + " must be finite and nonnegative");
+    }
+    if (options.strategy !== undefined && !["round_robin", "sticky"].includes(options.strategy))
+      throw new TypeError("Unknown key rotation strategy");
     this.states = cleaned.map((key) => ({ key, disabled: false, cooldownUntil: 0 }));
     this.options = {
       strategy: options.strategy ?? "round_robin",
@@ -91,8 +100,9 @@ export class ApiKeyPool {
   }
 
   cooldown(index: number, ms: number): void {
+    if (!Number.isFinite(ms) || ms < 0) throw new RangeError("Key cooldown must be finite and nonnegative");
     const state = this.states[index];
-    if (state) state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + Math.max(0, ms));
+    if (state) state.cooldownUntil = Math.max(state.cooldownUntil, Date.now() + ms);
   }
 
   markHealthy(index: number): void {

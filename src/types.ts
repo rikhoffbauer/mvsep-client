@@ -155,6 +155,8 @@ export interface MvsepClientOptions {
   retry?: RetryOptions;
   rateLimit?: RateLimitOptions;
   keyRotation?: KeyRotationOptions;
+  /** Maximum in-memory job/key affinity entries, evicting the oldest. */
+  maxJobAffinities?: number;
   onProgress?: ((event: MvsepProgressEvent) => void) | undefined;
 }
 
@@ -201,10 +203,13 @@ export interface AlgorithmFieldOption {
 }
 
 export interface AlgorithmField {
+  default_key?: string | number;
+  text?: string;
   name?: string;
   label?: string;
   type?: string;
-  options?: AlgorithmFieldOption[] | Record<string, unknown>;
+  /** Upstream may return a JSON-encoded option map, an object or an array. */
+  options?: string | AlgorithmFieldOption[] | Record<string, unknown>;
   [key: string]: unknown;
 }
 

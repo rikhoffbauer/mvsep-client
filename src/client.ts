@@ -9,9 +9,11 @@ import {
   MvsepJobFailedError,
   MvsepRateLimitError,
   MvsepTimeoutError,
+  redactText,
 } from "./errors.js";
 import { ApiKeyPool } from "./key-pool.js";
 import { Semaphore, TokenBucketRateLimiter } from "./rate-limiter.js";
+import { TransferManager } from "./transfers.js";
 import type {
   AlgorithmScope,
   ApiEnvelope,
@@ -31,6 +33,8 @@ import type {
   SeparationAlgorithm,
   SeparationResult,
 } from "./types.js";
+
+import type { DownloadFileOptions, StreamDownloadOptions, DownloadReceipt, DownloadedFile, OutputDownloadOptions, OutputManifest } from "./extended-types.js";
 
 const DEFAULT_RETRYABLE = [408, 425, 429, 500, 502, 503, 504] as const;
 const TERMINAL_STATUSES = new Set(["done", "failed", "not_found"]);
@@ -64,9 +68,9 @@ function normalizeKeys(keys: MvsepClientOptions["apiKeys"]): string[] {
 
 function normalizeRetry(options: RetryOptions = {}): NormalizedRetry {
   return {
-    maxAttempts: Math.max(1, options.maxAttempts ?? 5),
-    baseDelayMs: Math.max(0, options.baseDelayMs ?? 500),
-    maxDelayMs: Math.max(0, options.maxDelayMs ?? 20_000),
+    maxAttempts: positiveInt("maxAttempts", options.maxAttempts ?? 5),
+    baseDelayMs: nonnegative("baseDelayMs", options.baseDelayMs ?? 500),
+    maxDelayMs: nonnegative("maxDelayMs", options.maxDelayMs ?? 20_000),
     jitter: options.jitter ?? "full",
     retryableStatusCodes: new Set(options.retryableStatusCodes ?? DEFAULT_RETRYABLE),
     unsafeCreateRetries: options.unsafeCreateRetries ?? "safe",
@@ -108,8 +112,7 @@ function isUnauthorizedPayload(payload: unknown): boolean {
 function toBlob(part: BinaryPart): Blob {
   if (part.data instanceof Blob) return part.data;
   if (part.data instanceof Uint8Array) {
-    const bytes = Uint8Array.from(part.data).buffer;
-    return new Blob([bytes], part.contentType ? { type: part.contentType } : undefined);
+    return new Blob([part.data as BlobPart], part.contentType ? { type: part.contentType } : undefined);
   }
   return new Blob([part.data], part.contentType ? { type: part.contentType } : undefined);
 }
@@ -138,6 +141,7 @@ function validateCreateInput(input: CreateSeparationInput): void {
   if (input.outputFormat !== undefined && (input.outputFormat < 0 || input.outputFormat > 5)) {
     throw new RangeError("outputFormat must be an MVSep output format id from 0 through 5");
   }
+  if (input.presetId !== undefined && (input.addOpt1 !== undefined || input.addOpt2 !== undefined || input.addOpt3 !== undefined || input.outputFormat !== undefined)) throw new TypeError("Presets define their own options and output format");
   if (input.sepType !== undefined && input.presetId !== undefined) {
     throw new TypeError("Provide sepType or presetId, not both");
   }
@@ -179,19 +183,44 @@ function composeSignal(parent: AbortSignal | undefined, timeoutMs: number): {
 }
 
 async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
   if (ms <= 0) return;
   await new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
-      return;
-    }
-    const timer = setTimeout(resolve, ms);
-    const abort = () => {
-      clearTimeout(timer);
-      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
-    };
+    const abort = () => { clearTimeout(timer); signal?.removeEventListener("abort", abort); reject(signal?.reason ?? new DOMException("Aborted", "AbortError")); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, ms);
     signal?.addEventListener("abort", abort, { once: true });
   });
+}
+/** Abort even when a custom/mock fetch transport ignores the abort signal on its body. */
+async function abortable<T>(pending: Promise<T>, signal: AbortSignal, onAbort?: () => void): Promise<T> {
+  if (signal.aborted) throw signal.reason;
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => { signal.removeEventListener("abort", abort); onAbort?.(); reject(signal.reason); };
+    signal.addEventListener("abort", abort, { once: true });
+    pending.then(value => { signal.removeEventListener("abort", abort); resolve(value); },
+      error => { signal.removeEventListener("abort", abort); reject(error); });
+  });
+}
+function nonnegative(name: string, value: number, allowInfinity = false): number {
+  if (!(Number.isFinite(value) && value >= 0) && !(allowInfinity && value === Infinity))
+    throw new RangeError(name + " must be nonnegative");
+  return value;
+}
+function positiveInt(name: string, value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new RangeError(name + " must be a positive integer");
+  return value;
+}
+function validateResult(value: unknown): SeparationResult {
+  if (!value || typeof value !== "object" || Array.isArray(value) ||
+      typeof (value as SeparationResult).success !== "boolean" ||
+      typeof (value as SeparationResult).status !== "string" ||
+      !(value as SeparationResult).status ||
+      ((value as SeparationResult).data !== undefined &&
+       (!(value as SeparationResult).data || typeof (value as SeparationResult).data !== "object"))) {
+    throw new MvsepApiError("Invalid MVSep separation response", { response: value });
+  }
+  return value as SeparationResult;
 }
 
 function buildUrl(baseUrl: string, path: string, query: Record<string, string | number | boolean | undefined> = {}): string {
@@ -211,22 +240,33 @@ export class MvsepClient {
   private readonly keyPool: ApiKeyPool;
   private readonly limiter: TokenBucketRateLimiter;
   private readonly semaphore: Semaphore;
+  private readonly transfers: TransferManager;
   private readonly defaultProgress: ((event: MvsepProgressEvent) => void) | undefined;
   private readonly jobKeyAffinity = new Map<string, number>();
+  private readonly maxJobAffinities: number;
 
   constructor(options: MvsepClientOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options);
     this.fetchImpl = options.fetch ?? globalThis.fetch;
     if (!this.fetchImpl) throw new Error("A Fetch API implementation is required");
     this.retry = normalizeRetry(options.retry);
-    this.requestTimeoutMs = options.requestTimeoutMs ?? 60_000;
+    this.requestTimeoutMs = nonnegative("requestTimeoutMs", options.requestTimeoutMs ?? 60_000, true);
     this.keyPool = new ApiKeyPool(normalizeKeys(options.apiKeys), options.keyRotation);
     this.limiter = new TokenBucketRateLimiter({
       requestsPerSecond: options.rateLimit?.requestsPerSecond ?? 2,
       burst: options.rateLimit?.burst ?? 2,
     });
     this.semaphore = new Semaphore(options.rateLimit?.maxConcurrency ?? 4);
+    this.transfers = new TransferManager({
+      fetchImpl: this.fetchImpl,
+      limiter: this.limiter,
+      semaphore: this.semaphore,
+      timeoutMs: this.requestTimeoutMs,
+      maxAttempts: this.retry.maxAttempts,
+      baseDelayMs: this.retry.baseDelayMs,
+    });
     this.defaultProgress = options.onProgress;
+    this.maxJobAffinities = positiveInt("maxJobAffinities", options.maxJobAffinities ?? 10_000);
   }
 
   get apiKeyState() {
@@ -241,7 +281,26 @@ export class MvsepClient {
     if (!Number.isInteger(apiKeyIndex) || apiKeyIndex < 0 || apiKeyIndex >= this.keyPool.size) {
       throw new RangeError(`Invalid MVSep API key index: ${apiKeyIndex}`);
     }
-    this.jobKeyAffinity.set(hash, apiKeyIndex);
+    this.rememberJobKey(hash, apiKeyIndex);
+  }
+
+  private async waitForKeyCooldown(waitMs: number, signal?: AbortSignal, timeoutMs?: number): Promise<void> {
+    const composed = composeSignal(signal, timeoutMs ?? this.requestTimeoutMs);
+    try { await sleep(waitMs, composed.signal); }
+    catch (cause) {
+      if (signal?.aborted) throw new MvsepAbortError("MVSep request aborted while waiting for API key", { cause });
+      if (composed.didTimeout()) throw new MvsepTimeoutError("MVSep request timed out while waiting for API key", { cause });
+      throw cause;
+    } finally { composed.cleanup(); }
+  }
+
+  private rememberJobKey(hash: string, index: number): void {
+    this.jobKeyAffinity.delete(hash);
+    this.jobKeyAffinity.set(hash, index);
+    if (this.jobKeyAffinity.size > this.maxJobAffinities) {
+      const oldest = this.jobKeyAffinity.keys().next().value;
+      if (oldest !== undefined) this.jobKeyAffinity.delete(oldest);
+    }
   }
 
   forgetJobApiKey(hash: string): void {
@@ -294,12 +353,13 @@ export class MvsepClient {
         retryable: false,
       });
     }
-    if (usedKeyIndex !== undefined) this.jobKeyAffinity.set(response.data.hash, usedKeyIndex);
+    if (usedKeyIndex !== undefined) this.rememberJobKey(response.data.hash, usedKeyIndex);
     return response;
   }
 
   async getSeparation(hash: string, options: GetSeparationOptions = {}): Promise<SeparationResult> {
-    return this.execute<SeparationResult>({
+    if (options.mirror && !this.keyPool.hasKeys()) throw new MvsepAuthenticationError("Mirror requires an API key and costs one credit");
+    return validateResult(await this.execute<SeparationResult>({
       method: "GET",
       path: "/separation/get",
       authenticated: this.keyPool.hasKeys(),
@@ -308,12 +368,13 @@ export class MvsepClient {
       signal: options.signal,
       timeoutMs: options.timeoutMs,
       onProgress: options.onProgress,
-      queryFactory: (apiKey) => ({ hash, mirror: options.mirror ? 1 : undefined, api_token: apiKey }),
-    });
+      queryFactory: () => ({ hash, mirror: options.mirror ? 1 : undefined }),
+    }));
   }
 
-  async getRemoteSeparation(hash: string, options: GetSeparationOptions = {}): Promise<SeparationResult> {
-    return this.execute<SeparationResult>({
+  async getRemoteSeparation(hash: string, options: CallOptions = {}): Promise<SeparationResult> {
+    if ("mirror" in options) throw new TypeError("mirror is not supported by getRemoteSeparation");
+    return validateResult(await this.execute<SeparationResult>({
       method: "GET",
       path: "/separation/get-remote",
       query: { hash },
@@ -321,7 +382,7 @@ export class MvsepClient {
       signal: options.signal,
       timeoutMs: options.timeoutMs,
       onProgress: options.onProgress,
-    });
+    }));
   }
 
   async cancelSeparation(hash: string, options: CallOptions = {}) {
@@ -355,53 +416,67 @@ export class MvsepClient {
 
   async waitForSeparation(hash: string, options: PollOptions = {}): Promise<SeparationResult> {
     const started = Date.now();
+    const maxWaitMs = nonnegative("maxWaitMs", options.maxWaitMs ?? 30 * 60_000, true);
+    const deadline = Number.isFinite(maxWaitMs) ? started + maxWaitMs : Infinity;
+    let interval = nonnegative("intervalMs", options.intervalMs ?? 2_000);
+    const maxInterval = nonnegative("maxIntervalMs", options.maxIntervalMs ?? 10_000);
+    const factor = options.backoffFactor ?? 1.15;
+    if (!Number.isFinite(factor) || factor < 1) throw new RangeError("backoffFactor must be >= 1");
     let pollCount = 0;
-    let interval = Math.max(0, options.intervalMs ?? 2_000);
-    const maxInterval = Math.max(interval, options.maxIntervalMs ?? 10_000);
-    const factor = Math.max(1, options.backoffFactor ?? 1.15);
-    const maxWaitMs = options.maxWaitMs ?? 30 * 60_000;
-    const throwOnFailed = options.throwOnFailed ?? true;
-
-    while (true) {
-      if (options.signal?.aborted) throw new MvsepAbortError("MVSep polling aborted", { cause: options.signal.reason });
-      const elapsed = Date.now() - started;
-      if (Number.isFinite(maxWaitMs) && elapsed > maxWaitMs) {
-        throw new MvsepTimeoutError(`Timed out waiting for MVSep job ${hash} after ${elapsed} ms`);
+    const composed = composeSignal(options.signal, maxWaitMs);
+    try {
+      while (true) {
+        if (options.signal?.aborted) throw new MvsepAbortError("MVSep polling aborted", { cause: options.signal.reason });
+        if (composed.didTimeout() || Date.now() >= deadline)
+          throw new MvsepTimeoutError("MVSep polling deadline exceeded");
+        let result: SeparationResult;
+        try {
+          result = await this.getSeparation(hash, {
+            ...options, signal: composed.signal,
+            timeoutMs: Math.min(options.timeoutMs ?? this.requestTimeoutMs, Math.max(0, deadline - Date.now())),
+          });
+        } catch (cause) {
+          if (options.signal?.aborted) throw new MvsepAbortError("MVSep polling aborted", { cause });
+          if (composed.didTimeout() || Date.now() >= deadline)
+            throw new MvsepTimeoutError("MVSep polling deadline exceeded", { cause });
+          throw cause;
+        }
+        if (composed.didTimeout() || Date.now() >= deadline)
+          throw new MvsepTimeoutError("MVSep polling deadline exceeded");
+        pollCount++;
+        const data = result.data;
+        const fraction = data?.all_chunks && data.all_chunks > 0 && data.finished_chunks !== undefined
+          ? Math.min(1, data.finished_chunks / data.all_chunks) : undefined;
+        this.emit(options.onProgress, {
+          type: "poll", hash, pollCount, elapsedMs: Date.now() - started, status: result.status,
+          ...(data?.queue_count !== undefined ? { queueCount: data.queue_count } : {}),
+          ...(data?.current_order !== undefined ? { currentOrder: data.current_order } : {}),
+          ...(data?.finished_chunks !== undefined ? { finishedChunks: data.finished_chunks } : {}),
+          ...(data?.all_chunks !== undefined ? { allChunks: data.all_chunks } : {}),
+          ...(fraction !== undefined ? { fraction } : {}), result,
+        });
+        if (TERMINAL_STATUSES.has(result.status)) {
+          if ((options.throwOnFailed ?? true) && result.status !== "done")
+            throw new MvsepJobFailedError(result);
+          return result;
+        }
+        try { await sleep(Math.min(interval, Math.max(0, deadline - Date.now())), composed.signal); }
+        catch (cause) {
+          if (options.signal?.aborted) throw new MvsepAbortError("MVSep polling aborted", { cause });
+          if (composed.didTimeout()) throw new MvsepTimeoutError("MVSep polling deadline exceeded", { cause });
+          throw cause;
+        }
+        interval = Math.min(maxInterval, Math.ceil(interval * factor));
       }
-
-      const result = await this.getSeparation(hash, options);
-      pollCount += 1;
-      const data = result.data;
-      const fraction = data?.all_chunks && data.all_chunks > 0 && data.finished_chunks !== undefined
-        ? Math.min(1, data.finished_chunks / data.all_chunks)
-        : undefined;
-      this.emit(options.onProgress, {
-        type: "poll",
-        hash,
-        pollCount,
-        elapsedMs: Date.now() - started,
-        status: result.status,
-        ...(data?.queue_count !== undefined ? { queueCount: data.queue_count } : {}),
-        ...(data?.current_order !== undefined ? { currentOrder: data.current_order } : {}),
-        ...(data?.finished_chunks !== undefined ? { finishedChunks: data.finished_chunks } : {}),
-        ...(data?.all_chunks !== undefined ? { allChunks: data.all_chunks } : {}),
-        ...(fraction !== undefined ? { fraction } : {}),
-        result,
-      });
-
-      if (TERMINAL_STATUSES.has(result.status)) {
-        if (throwOnFailed && result.status !== "done") throw new MvsepJobFailedError(result);
-        return result;
-      }
-
-      await sleep(interval, options.signal);
-      interval = Math.min(maxInterval, Math.ceil(interval * factor));
+    } finally {
+      composed.cleanup();
     }
   }
 
   async createAndWait(input: CreateSeparationInput, options: CreateAndWaitOptions = {}): Promise<SeparationResult> {
     const created = await this.createSeparation(input, {
       signal: options.createSignal ?? options.signal,
+      timeoutMs: options.timeoutMs,
       onProgress: options.onProgress,
     });
     const hash = created.data?.hash;
@@ -410,54 +485,26 @@ export class MvsepClient {
   }
 
   async download(url: string, options: DownloadOptions = {}): Promise<Uint8Array> {
-    const composed = composeSignal(options.signal, options.timeoutMs ?? this.requestTimeoutMs);
-    try {
-      const response = await this.fetchImpl(url, { signal: composed.signal });
-      if (!response.ok) {
-        throw new MvsepHttpError(`Download failed with HTTP ${response.status}`, {
-          status: response.status,
-          url,
-          method: "GET",
-        });
-      }
+    return this.transfers.download(url, options);
+  }
 
-      const totalHeader = response.headers.get("content-length");
-      const total = totalHeader ? Number(totalHeader) : undefined;
-      if (!response.body) {
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        options.onProgress?.({ loaded: bytes.byteLength, ...(total ? { total, fraction: 1 } : {}) });
-        return bytes;
-      }
+  async downloadToStream(
+    url: string, stream: WritableStream<Uint8Array>, options: StreamDownloadOptions = {},
+  ): Promise<DownloadReceipt> {
+    return this.transfers.downloadToStream(url, stream, options);
+  }
 
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let loaded = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (!value) continue;
-        chunks.push(value);
-        loaded += value.byteLength;
-        options.onProgress?.({
-          loaded,
-          ...(total && Number.isFinite(total) ? { total, fraction: Math.min(1, loaded / total) } : {}),
-        });
-      }
-      const output = new Uint8Array(loaded);
-      let offset = 0;
-      for (const chunk of chunks) {
-        output.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return output;
-    } catch (error) {
-      if (error instanceof MvsepError) throw error;
-      if (composed.didTimeout()) throw new MvsepTimeoutError(`Download timed out: ${url}`, { cause: error, url });
-      if (options.signal?.aborted) throw new MvsepAbortError("Download aborted", { cause: error, url });
-      throw new MvsepError(`Download failed: ${url}`, { cause: error, url, retryable: true });
-    } finally {
-      composed.cleanup();
-    }
+  async downloadToFile(url: string, path: string, options: DownloadFileOptions = {}): Promise<DownloadedFile> {
+    return this.transfers.downloadToFile(url, path, options);
+  }
+
+  async downloadSeparationOutputs(
+    resultOrHash: SeparationResult | string, path: string, options: OutputDownloadOptions = {},
+  ): Promise<OutputManifest> {
+    const result = typeof resultOrHash === "string"
+      ? await this.waitForSeparation(resultOrHash, { signal: options.signal, timeoutMs: options.timeoutMs })
+      : resultOrHash;
+    return this.transfers.downloadSeparationOutputs(result, path, options);
   }
 
   private async authenticatedHashAction(
@@ -511,7 +558,7 @@ export class MvsepClient {
               ? lastError
               : new MvsepAuthenticationError(`Required MVSep API key ${options.requiredKeyIndex} is unavailable`);
           }
-          if (waitMs > 0) await sleep(waitMs, options.signal);
+          if (waitMs > 0) await this.waitForKeyCooldown(waitMs, options.signal, options.timeoutMs);
           selected = this.keyPool.selectIndex(options.requiredKeyIndex);
         } else {
           triedKeys.clear();
@@ -521,20 +568,21 @@ export class MvsepClient {
               ? lastError
               : new MvsepAuthenticationError("No usable MVSep API keys remain");
           }
-          if (waitMs > 0) await sleep(waitMs, options.signal);
+          if (waitMs > 0) await this.waitForKeyCooldown(waitMs, options.signal, options.timeoutMs);
           selected = this.keyPool.select();
         }
         if (!selected) throw new MvsepAuthenticationError("No usable MVSep API keys remain");
       }
 
-      const authInQuery = authenticated && (method === "GET")
-        ? { api_token: selected?.key }
-        : {};
-      const query = {
-        ...authInQuery,
+      const query: Record<string, string | number | boolean | undefined> = {
         ...(options.query ?? {}),
         ...(options.queryFactory?.(selected?.key) ?? {}),
       };
+      if (authenticated) {
+        if (Object.hasOwn(query, "api_token") || Object.hasOwn(options.form ?? {}, "api_token"))
+          throw new TypeError("Authenticated requests cannot override api_token");
+        if (method === "GET") query.api_token = selected?.key;
+      }
       const url = buildUrl(this.baseUrl, options.path, query);
       const context: RequestContext = {
         method,
@@ -559,59 +607,42 @@ export class MvsepClient {
       previousKeyIndex = selected?.index;
 
       try {
-        const waitMs = await this.limiter.acquire(options.signal);
-        if (waitMs > 0) this.emit(options.onProgress, { type: "rate_limit", waitMs, ...context });
-        const release = await this.semaphore.acquire(options.signal);
-
         let response: Response;
+        let payload: unknown;
         const composed = composeSignal(options.signal, options.timeoutMs ?? this.requestTimeoutMs);
+        let release: (() => void) | undefined;
         try {
+          const waitMs = await this.limiter.acquire(composed.signal);
+          if (waitMs > 0) this.emit(options.onProgress, { type: "rate_limit", waitMs, ...context });
+          release = await this.semaphore.acquire(composed.signal);
           this.emit(options.onProgress, { type: "request", phase: "start", ...context });
           const body = options.bodyFactory?.(selected?.key)
             ?? this.buildRawForm(options.form, selected?.key, authenticated && method !== "GET");
           const init: RequestInit = { method, signal: composed.signal };
           if (options.headers !== undefined) init.headers = options.headers;
           if (body !== undefined) init.body = body;
-          response = await this.fetchImpl(url, init);
+          response = await abortable(this.fetchImpl(url, init), composed.signal);
+          const rawText = await abortable(response.text(), composed.signal, () => { void response.body?.cancel().catch(() => {}); });
+          if (rawText.trim()) {
+            try { payload = JSON.parse(rawText); }
+            catch (cause) {
+              if (response.ok) throw new MvsepHttpError("MVSep returned invalid JSON", {
+                cause, status: response.status, response: redactText(rawText.slice(0, 2_000)),
+                method, url, retryable: false,
+              });
+              payload = redactText(rawText.slice(0, 2_000));
+            }
+          }
         } catch (error) {
-          if (composed.didTimeout()) {
-            throw new MvsepTimeoutError(`MVSep request timed out after ${options.timeoutMs ?? this.requestTimeoutMs} ms`, {
-              cause: error,
-              method,
-              url,
-              ...(selected ? { apiKeyIndex: selected.index } : {}),
-              retryable: true,
-            });
-          }
-          if (options.signal?.aborted) throw new MvsepAbortError("MVSep request aborted", { cause: error, method, url });
-          throw new MvsepError(`MVSep transport error: ${error instanceof Error ? error.message : String(error)}`, {
-            cause: error,
-            method,
-            url,
-            ...(selected ? { apiKeyIndex: selected.index } : {}),
-            retryable: true,
-          });
+          if (composed.didTimeout())
+            throw new MvsepTimeoutError("MVSep request timed out", { cause: error, method, url, retryable: true });
+          if (options.signal?.aborted)
+            throw new MvsepAbortError("MVSep request aborted", { cause: error, method, url });
+          if (error instanceof MvsepError) throw error;
+          throw new MvsepError("MVSep transport error", { cause: error, method, url, retryable: true });
         } finally {
+          release?.();
           composed.cleanup();
-          release();
-        }
-
-        const text = await response.text();
-        let payload: unknown = undefined;
-        if (text.trim()) {
-          try {
-            payload = JSON.parse(text);
-          } catch (cause) {
-            throw new MvsepHttpError(`MVSep returned non-JSON data with HTTP ${response.status}`, {
-              cause,
-              status: response.status,
-              response: text.slice(0, 2_000),
-              method,
-              url,
-              ...(selected ? { apiKeyIndex: selected.index } : {}),
-              retryable: response.status >= 500,
-            });
-          }
         }
 
         if (response.ok && authenticated && isUnauthorizedPayload(payload)) {
@@ -667,7 +698,8 @@ export class MvsepClient {
         this.emit(options.onProgress, { type: "request", phase: "success", status: response.status, ...context });
         return payload as T;
       } catch (error) {
-        if (error instanceof MvsepAbortError || options.signal?.aborted) throw error;
+        if (options.signal?.aborted) throw new MvsepAbortError("MVSep request aborted", { cause: error });
+        if (error instanceof MvsepAbortError) throw error;
         lastError = error;
         if (selected && options.requiredKeyIndex === undefined) triedKeys.add(selected.index);
 
@@ -694,7 +726,8 @@ export class MvsepClient {
           ...(error instanceof MvsepError && error.status !== undefined ? { status: error.status } : {}),
           ...context,
         });
-        await sleep(delayMs, options.signal);
+        try { await sleep(delayMs, options.signal); }
+        catch (cause) { throw new MvsepAbortError("MVSep request aborted", { cause }); }
       }
     }
 
@@ -715,6 +748,7 @@ export class MvsepClient {
 
   private shouldRetry(error: unknown, options: ExecuteOptions, method: string): boolean {
     if (!(error instanceof MvsepError)) return false;
+    if (options.operation === "create" && this.retry.unsafeCreateRetries === "never") return false;
     if (error instanceof MvsepAuthenticationError) return this.keyPool.hasKeys();
     if (!error.retryable) return false;
 
@@ -730,8 +764,8 @@ export class MvsepClient {
   }
 
   private emit(local: ((event: MvsepProgressEvent) => void) | undefined, event: MvsepProgressEvent): void {
-    this.defaultProgress?.(event);
-    if (local !== this.defaultProgress) local?.(event);
+    try { this.defaultProgress?.(event); } catch { /* observers cannot invalidate requests */ }
+    if (local !== this.defaultProgress) { try { local?.(event); } catch { /* observer isolation */ } }
   }
 }
 
