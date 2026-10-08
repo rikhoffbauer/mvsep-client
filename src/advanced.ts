@@ -1,5 +1,3 @@
-import { openAsBlob } from "node:fs";
-import { basename } from "node:path";
 import {
   MvsepAbortError, MvsepApiError, MvsepAuthenticationError, MvsepJobFailedError, MvsepTimeoutError,
 } from "./errors.js";
@@ -52,6 +50,10 @@ function enumNumber(name: string, value: number, minimum: number): void {
 
 /** Lazily opened, disk-backed Blob on Node 20+ and Bun. */
 export async function fileBlobFromPath(path: string, contentType?: string) {
+  const fsSpecifier: string = "node:fs";
+  const pathSpecifier: string = "node:path";
+  const { openAsBlob } = await import(/* @vite-ignore */ fsSpecifier) as typeof import("node:fs");
+  const { basename } = await import(/* @vite-ignore */ pathSpecifier) as typeof import("node:path");
   const blob = await openAsBlob(path, contentType ? { type: contentType } : undefined);
   return { data: blob, filename: basename(path), ...(contentType ? { contentType } : {}) };
 }

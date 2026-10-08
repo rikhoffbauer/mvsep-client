@@ -41,6 +41,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build and typecheck docs
         working-directory: docs
+        env:
+          PUBLIC_MVSEP_RELAY_URL: https://mvsep-client-playground.vercel.app/api/relay
         run: bun run build
       - name: Validate internal links
         working-directory: docs

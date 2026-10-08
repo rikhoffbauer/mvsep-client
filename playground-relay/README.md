@@ -22,4 +22,4 @@ cd playground-relay
 node --test test/*.test.mjs
 ```
 
-Deploy through Vercel with root directory `playground-relay`. In docs CI, configure `PUBLIC_MVSEP_RELAY_URL` to the actual deployed `https://.../api/relay` endpoint.
+The relay is deployed on Vercel at `https://mvsep-client-playground.vercel.app/api/relay` from the GitHub repository using project root `playground-relay/`. Future pushes to `main` rebuild the production relay automatically. In docs CI, configure `PUBLIC_MVSEP_RELAY_URL` to the actual deployed `https://.../api/relay` endpoint.

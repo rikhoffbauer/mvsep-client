@@ -40,6 +40,21 @@ import { MvsepClient } from '@rikhoffbauer/mvsep-client';
 const client = new MvsepClient({ apiKeys: process.env.MVSEP_API_KEY });
 ```
 
+## Browser-compatible client
+
+The package provides a browser-specific entry point exposing the full API client without eagerly importing Node.js filesystem modules:
+
+```ts
+import { MvsepClient } from '@rikhoffbauer/mvsep-client/browser';
+
+const client = new MvsepClient({
+  apiKeys: ['key-one', 'key-two'],
+  keyRotation: { strategy: 'round_robin' },
+});
+```
+
+**Important:** MVSep does not currently return browser CORS headers. A direct browser `fetch` will be blocked even with valid keys. The [interactive playground](/mvsep-client/playground/) integrates a carefully restricted HTTPS relay with an explicit consent notice. Browser users can supply a compatible `fetch` adapter and must understand who operates it. Disk-backed helpers such as `fileBlobFromPath` and atomic `downloadToFile` require Node.js; browser API methods and in-memory blobs work.
+
 ## CLI
 
 The same package installs a `mvsep` executable:

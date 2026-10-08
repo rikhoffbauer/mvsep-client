@@ -16,6 +16,7 @@ function init(root: HTMLElement) {
   let abort: AbortController | null = null;
   let last = '';
   let eventCount = 0;
+  let sessionVersion = 0;
   const eventList = $('pg-events');
   const keyList = $('pg-keys');
   const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-tab]'));
@@ -91,10 +92,12 @@ function init(root: HTMLElement) {
     return fetch(url, { ...init, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer' });
   };
   function connected(value: boolean) {
-    $('pg-status').textContent = value ? '● Connected' : '● Disconnected';
+    root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => { button.disabled = !value && button.id === 'pg-test-keys'; });
+    $('pg-status').textContent = value ? '● Keys configured' : '● Disconnected';
     $('pg-status').classList.toggle('connected', value);
     $<HTMLButtonElement>('pg-connect').disabled = value;
     $<HTMLButtonElement>('pg-disconnect').disabled = !value;
+    $<HTMLButtonElement>('pg-test-keys').disabled = !value;
     for (const id of ['pg-region','pg-strategy','pg-add-key'])
       ($<HTMLButtonElement | HTMLSelectElement>(id)).disabled = value;
     keyList.querySelectorAll<HTMLInputElement>('input, button').forEach(el => el.disabled = value);
@@ -107,11 +110,12 @@ function init(root: HTMLElement) {
     if (new Set(entered).size !== entered.length) return alert('Remove duplicate API keys.');
     try {
       keys = entered;
+      const version = ++sessionVersion;
       client = new MvsepClient({
         apiKeys: keys, region: val('pg-region'),
         keyRotation: { strategy: val('pg-strategy') as 'round_robin' | 'sticky' },
         retry: { unsafeCreateRetries: 'safe' },
-        fetch: viaRelay, onProgress: progress,
+        fetch: viaRelay, onProgress: event => { if (version === sessionVersion) progress(event); },
       });
       keyList.querySelectorAll<HTMLInputElement>('input').forEach(el => { el.value = ''; });
       const select = $<HTMLSelectElement>('pg-affinity');
@@ -125,7 +129,7 @@ function init(root: HTMLElement) {
     }
   });
   $('pg-disconnect').addEventListener('click', () => {
-    abort?.abort(); abort = null; client = null; keys = [];
+    ++sessionVersion; abort?.abort(); abort = null; client = null; keys = [];
     connected(false); state();
     set('pg-response', '// Disconnected. Credentials removed from playground memory.');
     set('pg-response-status', 'Disconnected'); last = '';
@@ -142,9 +146,9 @@ function init(root: HTMLElement) {
     root.querySelectorAll<HTMLElement>('[data-pane]').forEach(pane => { pane.hidden = pane.dataset.pane !== tab.dataset.tab; });
   });
   root.querySelectorAll<HTMLInputElement>('input[name=pg-input]').forEach(radio => radio.addEventListener('change', () => {
-    const fileSelected = root.querySelector<HTMLInputElement>('input[name=pg-input]:checked')?.value === 'file';
-    $('pg-file-field').hidden = !fileSelected;
-    $('pg-url-field').hidden = fileSelected;
+    const mode = root.querySelector<HTMLInputElement>('input[name=pg-input]:checked')?.value;
+    $('pg-file-field').hidden = mode !== 'file';
+    $('pg-url-field').hidden = mode !== 'url';
   }));
   function renderModels(models: SeparationAlgorithm[]) {
     const list = $('pg-model-list'); list.replaceChildren();
@@ -164,8 +168,10 @@ function init(root: HTMLElement) {
   async function execute(action: string) {
     if (!client) return alert('Connect with one or more API keys first.');
     if (abort) return;
-    abort = new AbortController();
-    const signal = abort.signal;
+    const thisSession = sessionVersion;
+    const controller = new AbortController();
+    abort = controller;
+    const signal = controller.signal;
     $<HTMLButtonElement>('pg-abort').disabled = false;
     root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => button.disabled = true);
     set('pg-response-status', 'Loading…');
@@ -177,15 +183,39 @@ function init(root: HTMLElement) {
       switch (action) {
         case 'models': {
           const models = await client.getAlgorithms(val('pg-scope') as 'single_upload' | 'no_upload' | 'matchering_upload', { signal });
-          renderModels(models);
+          if (sessionVersion === thisSession) renderModels(models);
           data = { count: models.length, models: models.map(m => ({ id: m.render_id, name: m.name, widget: m.audio_widget, options: m.algorithm_fields })) };
           break;
         }
-        case 'user': data = await client.request({ path: '/app/user', authenticated: true, signal }); break;
-        case 'queue': data = await client.request({ path: '/app/queue/summary', authenticated: true, signal }); break;
-        case 'history': data = await client.request({ path: '/app/separation_history', query: { limit: 10, start: 0 }, authenticated: true, signal }); break;
-        case 'purchases': data = await client.request({ path: '/purchases', query: { limit: 10 }, authenticated: true, signal }); break;
-        case 'alert': data = await client.request({ path: '/credit_alert', authenticated: true, signal }); break;
+        case 'test-keys': {
+          const selectedRegion = val('pg-region');
+          const verifications: Array<{ index: number; valid: boolean; account?: string; error?: string }> = [];
+          for (const [index, key] of keys.entries()) {
+            if (signal.aborted) throw new Error('Verification cancelled');
+            const dedicated = new MvsepClient({ apiKeys: key, region: selectedRegion, fetch: viaRelay,
+              retry: { maxAttempts: 1, unsafeCreateRetries: 'never' }, requestTimeoutMs: 12_000 });
+            try {
+              const user = await dedicated.getUser({ signal });
+              verifications.push({ index: index + 1, valid: true,
+                ...(typeof user.name === 'string' ? { account: user.name } : {}) });
+            } catch (error) {
+              verifications.push({ index: index + 1, valid: false, error: error instanceof Error ? error.message : String(error) });
+            }
+          }
+          data = { credentialsChecked: verifications.length, results: verifications,
+            note: 'These checks do not submit any separation jobs or change account settings.' };
+          log('Checked ' + verifications.length + ' credential(s) against MVSep');
+          break;
+        }
+        case 'news': data = await client.getNews({ limit: 10, lang: 'en' }, { signal }); break;
+        case 'demos': data = await client.getDemoSeparations({ limit: 10 }, { signal }); break;
+        case 'leaderboard': data = await client.getQualityLeaderboard({ limit: 10 }, { signal }); break;
+        case 'quality-queue': data = await client.getQualityQueue({ limit: 10 }, { signal }); break;
+        case 'user': data = await client.getUser({ signal }); break;
+        case 'queue': data = await client.getQueueSummary({ signal }); break;
+        case 'history': data = await client.getSeparationHistory({ limit: 10, start: 0 }, { signal }); break;
+        case 'purchases': data = await client.getPurchases({ limit: 10 }, { signal }); break;
+        case 'alert': data = await client.getCreditAlert({ signal }); break;
         case 'bind':
           if (!val('pg-affinity')) throw Error('Choose the job\'s originating key.');
           client.bindJobToApiKey(hash, Number(val('pg-affinity')));
@@ -203,18 +233,23 @@ function init(root: HTMLElement) {
           const text = val('pg-algorithm');
           const id = Number(text);
           if (!text || !Number.isSafeInteger(id) || id < 0) throw Error('Choose a valid algorithm ID.');
-          const fileMode = root.querySelector<HTMLInputElement>('input[name=pg-input]:checked')?.value === 'file';
+          const mode = root.querySelector<HTMLInputElement>('input[name=pg-input]:checked')?.value;
+          const fileMode = mode === 'file';
+          const noUpload = mode === 'no_upload';
           const file = $<HTMLInputElement>('pg-file').files?.[0];
           const url = val('pg-url').trim();
           if (fileMode && !file) throw Error('Choose a file.');
           if (fileMode && file && file.size > 2 * 1024 * 1024) throw Error('Maximum 2 MiB. Use a remote URL instead.');
-          if (!fileMode && (!url.startsWith('https://') || !new URL(url).hostname)) throw Error('Provide a publicly reachable HTTPS audio URL.');
+          if (mode === 'url' && (!url.startsWith('https://') || !new URL(url).hostname)) throw Error('Provide a publicly reachable HTTPS audio URL.');
           if (!confirm('Submit this separation to MVSep? It can consume paid credits. Cost is not guaranteed. Continue?')) return;
           const format = val('pg-format');
           const input = {
             sepType: id,
-            ...(fileMode && file ? { audiofile: { data: file, filename: file.name, contentType: file.type || 'application/octet-stream' } } : { url }),
+            ...(fileMode && file ? { audiofile: { data: file, filename: file.name, contentType: file.type || 'application/octet-stream' } } : noUpload ? {} : { url }),
             ...(format ? { outputFormat: Number(format) as 0|1|2|3|4|5 } : {}),
+            ...(val('pg-opt1') ? { addOpt1: val('pg-opt1') } : {}),
+            ...(val('pg-opt2') ? { addOpt2: val('pg-opt2') } : {}),
+            ...(val('pg-opt3') ? { addOpt3: val('pg-opt3') } : {}),
           };
           const created = await client.createSeparation(input, { signal });
           if (created.data?.hash) {
@@ -231,15 +266,20 @@ function init(root: HTMLElement) {
           break;
         default: throw Error('Unrecognized operation');
       }
-      if (data !== undefined) result(action, data, started);
+      if (data !== undefined && sessionVersion === thisSession) result(action, data, started);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      result(action, { error: msg, name: error instanceof Error ? error.name : 'Error', hint: 'For networking errors check the relay and MVSep region.' }, started, true);
-      log('Operation failed (' + action + ')');
+      if (sessionVersion === thisSession) {
+        result(action, { error: msg, name: error instanceof Error ? error.name : 'Error', hint: 'For networking errors check the relay and MVSep region.' }, started, true);
+        log('Operation failed (' + action + ')');
+      }
     } finally {
-      abort = null; $<HTMLButtonElement>('pg-abort').disabled = true;
-      root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => button.disabled = false);
-      state();
+      if (abort === controller) abort = null;
+      if (sessionVersion === thisSession) {
+        $<HTMLButtonElement>('pg-abort').disabled = true;
+        root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => button.disabled = false);
+        state();
+      }
     }
   }
   root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => button.addEventListener('click', () => { void execute(button.dataset.action!); }));

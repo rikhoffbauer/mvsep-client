@@ -10,6 +10,6 @@ import Playground from '../../components/Playground.astro';
 
 ## How it works
 
-The playground uses the **same browser-compatible SDK core client** for API requests, retry policies and multi-key selection. MVSep does not send the CORS headers needed for direct GitHub Pages calls, so requests are forwarded through a [narrowly scoped HTTPS relay](https://github.com/rikhoffbauer/mvsep-client/tree/main/playground-relay) after you explicitly opt in. Keys are kept in memory and cleared on disconnect or tab reload, not stored locally.
+The playground uses the **browser-compatible full SDK client** for API requests, retry policies and multi-key selection. It supports algorithm discovery, read-only account and quality endpoints, job status/cancellation, single-file submissions and no-upload model requests with optional algorithm fields. MVSep does not send the CORS headers needed for direct GitHub Pages calls, so requests are forwarded through a [narrowly scoped HTTPS relay](https://github.com/rikhoffbauer/mvsep-client/tree/main/playground-relay) after you explicitly opt in. Keys are kept in memory and cleared on disconnect or tab reload, not stored locally.
 
 The relay is a trusted party in the network path: its operator and hosting provider can technically see submitted credentials. For sensitive accounts or files larger than 2 MiB, [install and run the SDK locally](/mvsep-client/start/installation/) instead. Never submit paid work unless you are comfortable with possible credit consumption.

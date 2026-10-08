@@ -18,17 +18,18 @@ try {
   const manifest = JSON.parse(raw)[0];
   assert(manifest.filename.endsWith(".tgz"));
   const names = manifest.files.map(f => f.path);
-  for (const path of ["dist/index.js", "dist/index.d.ts", "dist/cli.js", "dist/client.js.map"])
+  for (const path of ["dist/index.js", "dist/index.d.ts", "dist/browser.js", "dist/browser.d.ts", "dist/cli.js", "dist/client.js.map"])
     assert(names.includes(path), path + " missing from packed artifact");
   assert(!names.some(name => name.startsWith("src/")), "source files should not be required for sourcemaps");
   run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", work,
     join(work, manifest.filename)], work);
   await writeFile(join(work, "consumer.mjs"),
     'import { MvsepClient, estimateJobCredits } from "@rikhoffbauer/mvsep-client";\n' +
+    'import { MvsepClient as BrowserClient } from "@rikhoffbauer/mvsep-client/browser";\n' +
     'import { runBatch } from "@rikhoffbauer/mvsep-client/batch";\n' +
     'import { LocalArtifactCache } from "@rikhoffbauer/mvsep-client/local-cache";\n' +
     'import { MvsepDiagnostics } from "@rikhoffbauer/mvsep-client/diagnostics";\n' +
-    'if (!(new MvsepClient() instanceof MvsepClient) || !runBatch || !LocalArtifactCache || !MvsepDiagnostics || !estimateJobCredits) process.exit(1);\n');
+    'if (!(new MvsepClient() instanceof MvsepClient) || !new BrowserClient().getUser || !runBatch || !LocalArtifactCache || !MvsepDiagnostics || !estimateJobCredits) process.exit(1);\n');
   run("node", ["consumer.mjs"], work);
   const cli = join(work, "node_modules", ".bin", "mvsep");
   const usage = run(cli, ["help"], work);
@@ -38,9 +39,12 @@ try {
     "Published sourcemap must include original source");
   await writeFile(join(work, "typecheck.ts"),
     'import { MvsepClient, type MvsepJobHandle } from "@rikhoffbauer/mvsep-client";\n' +
+    'import { MvsepClient as BrowserClient } from "@rikhoffbauer/mvsep-client/browser";\n' +
     'const client = new MvsepClient();\n' +
     'const handle: MvsepJobHandle = { version: 1, hash: "x", baseUrl: client.baseUrl, createdAt: "2026-10-08" };\n' +
-    'void handle; void client.getQueueSummary();\n');
+    'void handle; void client.getQueueSummary();\n' +
+    'const browserClient = new BrowserClient({ apiKeys: ["one", "two"] });\n' +
+    'void browserClient.getUser; void browserClient.waitForJob;\n');
   run("node", [join(root, "node_modules/typescript/bin/tsc"), "--noEmit", "--skipLibCheck",
     "--target", "ES2022", "--module", "NodeNext", "--moduleResolution", "NodeNext",
     join(work, "typecheck.ts")], work);

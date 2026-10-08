@@ -1,6 +1,7 @@
 # MVSep TypeScript client
 
 **Documentation:** https://rikhoffbauer.github.io/mvsep-client/ — installation, guides, API reference, CLI and production workflows.
+**Playground:** https://rikhoffbauer.github.io/mvsep-client/playground/ — try the SDK with your keys, using an explicit-consent HTTPS relay.
 **Examples:** https://rikhoffbauer.github.io/mvsep-client/recipes/example-gallery/ — runnable scenarios, including offline tests of key rotation and recovery.
 
 
