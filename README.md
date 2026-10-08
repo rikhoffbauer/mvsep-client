@@ -24,17 +24,16 @@ Runtime dependencies: **none**. It uses the standard Fetch, FormData, Blob, Abor
 The project is directly installable from its GitHub repository. No npm-registry publication is required.
 
 ```bash
-# npm resolves Git dependencies and executes the package's build/prepare script
-npm install github:rikhoffbauer/mvsep-client
+# Private GitHub repository: authenticate with your configured GitHub SSH key
+npm install 'git+ssh://git@github.com/rikhoffbauer/mvsep-client.git'
+bun add 'git@github.com:rikhoffbauer/mvsep-client.git'
 
-# Or use Git+SSH
-npm install git+ssh://git@github.com/rikhoffbauer/mvsep-client.git
-
-# Bun requires explicit trust to execute build scripts for Git dependencies
-bun add --trust github:rikhoffbauer/mvsep-client
+# If the repository is made public, HTTPS shorthand also works:
+# npm install github:rikhoffbauer/mvsep-client
+# bun add github:rikhoffbauer/mvsep-client
 ```
 
-For an already-installed Bun Git dependency where the build was blocked, run `bun pm trust @rikhoffbauer/mvsep-client` or add `"trustedDependencies": ["@rikhoffbauer/mvsep-client"]` to the consuming project's `package.json`, then reinstall. Git dependencies are built via `prepare`; `dist/` is deliberately not committed. Installations without lifecycle scripts enabled **will not work** from an uncompiled Git checkout.
+`dist/` is versioned in Git and the package has **no dependency lifecycle scripts**. This is intentional: a direct Git dependency works in both npm and Bun without running an untrusted install-time compiler or requiring TypeScript in the consuming project. CI runs `bun run build:verify` to ensure compiled files match the committed source. For a private repository, GitHub's unauthenticated `github:` tarball endpoint can return 404; use SSH.
 
 A local development checkout works with `bun install && bun run build`. The supported runtime is Node.js 20+ or a recent Bun release.
 

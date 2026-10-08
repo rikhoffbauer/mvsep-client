@@ -59,7 +59,7 @@ This is the implementation follow-up to the historical `CODE_REVIEW.md` and `SUG
 - **Unknown priced operations** (including saved presets and arbitrary no-upload generation) are rejected by budget-guarded submission. They are not inferred to cost zero.
 - **Webhook authenticity** is the responsibility of the HTTP server; upstream documents a payload but no signature verification scheme. Dedup storage is in-memory unless the caller persists its own delivery journal.
 - **Crash consistency** of batch jobs is conservative: a durable pending-submission marker is persisted *before* the POST, preventing an automatic duplicate after a crash, but an ambiguous marker needs manual reconciliation against the account history before resubmission.
-- **Bun Git dependencies** require an explicitly trusted build lifecycle. Use `bun add --trust github:rikhoffbauer/mvsep-client`. npm Git dependencies execute the `prepare` build by default.
+- **GitHub installation** uses versioned compiled `dist/` assets and no package lifecycle hooks, for a clean private-repository install over Git+SSH with npm or Bun. CI verifies the committed build matches the source.
 - The default in-memory download limit is 256 MiB; use streaming file/writable APIs for larger outputs.
 
 ## Reproduce verification

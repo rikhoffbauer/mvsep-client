@@ -26,7 +26,7 @@
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",
-    "prepare": "npm run build",
+    "build:verify": "npm run build && git diff --exit-code -- dist",
     "test:coverage": "npm run build && node --experimental-test-coverage --test test/*.test.mjs",
     "smoke:package": "node scripts/smoke-package.mjs"
   },
