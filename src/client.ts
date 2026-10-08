@@ -1,5 +1,3 @@
-import { basename } from "node:path";
-import { readFile } from "node:fs/promises";
 import {
   MvsepAbortError,
   MvsepApiError,
@@ -13,7 +11,6 @@ import {
 } from "./errors.js";
 import { ApiKeyPool } from "./key-pool.js";
 import { Semaphore, TokenBucketRateLimiter } from "./rate-limiter.js";
-import { TransferManager } from "./transfers.js";
 import type {
   AlgorithmScope,
   ApiEnvelope,
@@ -240,7 +237,7 @@ export class MvsepClient {
   private readonly keyPool: ApiKeyPool;
   private readonly limiter: TokenBucketRateLimiter;
   private readonly semaphore: Semaphore;
-  private readonly transfers: TransferManager;
+  private transferInstance: Promise<import("./transfers.js").TransferManager> | undefined;
   private readonly defaultProgress: ((event: MvsepProgressEvent) => void) | undefined;
   private readonly jobKeyAffinity = new Map<string, number>();
   private readonly maxJobAffinities: number;
@@ -257,16 +254,21 @@ export class MvsepClient {
       burst: options.rateLimit?.burst ?? 2,
     });
     this.semaphore = new Semaphore(options.rateLimit?.maxConcurrency ?? 4);
-    this.transfers = new TransferManager({
+    this.defaultProgress = options.onProgress;
+    this.maxJobAffinities = positiveInt("maxJobAffinities", options.maxJobAffinities ?? 10_000);
+  }
+
+  /** Node-only file transfers load lazily; browser clients can use the API transport without Node built-ins. */
+  private transfers(): Promise<import("./transfers.js").TransferManager> {
+    const nodeTransfers: string = "./transfers.js";
+    return this.transferInstance ??= (import(/* @vite-ignore */ nodeTransfers) as Promise<typeof import("./transfers.js")>).then(({ TransferManager }) => new TransferManager({
       fetchImpl: this.fetchImpl,
       limiter: this.limiter,
       semaphore: this.semaphore,
       timeoutMs: this.requestTimeoutMs,
       maxAttempts: this.retry.maxAttempts,
       baseDelayMs: this.retry.baseDelayMs,
-    });
-    this.defaultProgress = options.onProgress;
-    this.maxJobAffinities = positiveInt("maxJobAffinities", options.maxJobAffinities ?? 10_000);
+    }));
   }
 
   get apiKeyState() {
@@ -485,17 +487,17 @@ export class MvsepClient {
   }
 
   async download(url: string, options: DownloadOptions = {}): Promise<Uint8Array> {
-    return this.transfers.download(url, options);
+    return (await this.transfers()).download(url, options);
   }
 
   async downloadToStream(
     url: string, stream: WritableStream<Uint8Array>, options: StreamDownloadOptions = {},
   ): Promise<DownloadReceipt> {
-    return this.transfers.downloadToStream(url, stream, options);
+    return (await this.transfers()).downloadToStream(url, stream, options);
   }
 
   async downloadToFile(url: string, path: string, options: DownloadFileOptions = {}): Promise<DownloadedFile> {
-    return this.transfers.downloadToFile(url, path, options);
+    return (await this.transfers()).downloadToFile(url, path, options);
   }
 
   async downloadSeparationOutputs(
@@ -504,7 +506,7 @@ export class MvsepClient {
     const result = typeof resultOrHash === "string"
       ? await this.waitForSeparation(resultOrHash, { signal: options.signal, timeoutMs: options.timeoutMs })
       : resultOrHash;
-    return this.transfers.downloadSeparationOutputs(result, path, options);
+    return (await this.transfers()).downloadSeparationOutputs(result, path, options);
   }
 
   private async authenticatedHashAction(
@@ -770,6 +772,10 @@ export class MvsepClient {
 }
 
 export async function fileFromPath(path: string, contentType?: string): Promise<BinaryPart> {
+  const fsSpecifier: string = "node:fs/promises";
+  const pathSpecifier: string = "node:path";
+  const { readFile } = await import(/* @vite-ignore */ fsSpecifier) as typeof import("node:fs/promises");
+  const { basename } = await import(/* @vite-ignore */ pathSpecifier) as typeof import("node:path");
   const data = await readFile(path);
   return {
     data,

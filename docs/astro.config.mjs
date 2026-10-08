@@ -16,6 +16,7 @@ export default defineConfig({
       lastUpdated: true,
       sidebar: [
         { label: 'Start here', items: [
+          { slug: 'playground' },
           { slug: 'start/introduction' },
           { slug: 'start/installation' },
           { slug: 'start/quickstart' },

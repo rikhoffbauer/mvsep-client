@@ -10,6 +10,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./browser": { "types": "./dist/browser.d.ts", "import": "./dist/browser.js" },
     "./batch": { "types": "./dist/batch.d.ts", "import": "./dist/batch.js" },
     "./local-cache": { "types": "./dist/local-cache.d.ts", "import": "./dist/local-cache.js" },
     "./diagnostics": { "types": "./dist/diagnostics.d.ts", "import": "./dist/diagnostics.js" },

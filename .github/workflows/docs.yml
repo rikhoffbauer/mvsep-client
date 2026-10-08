@@ -6,6 +6,8 @@ on:
     paths:
       - 'docs/**'
       - 'examples/**'
+      - 'playground-relay/**'
+      - 'src/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -32,6 +34,8 @@ jobs:
           bun run examples/offline-diagnostics.ts
           bun run examples/credit-guards.ts
           bun run examples/local-artifact-cache.ts
+      - name: Test playground relay security
+        run: node --test playground-relay/test/*.test.mjs
       - name: Install locked docs dependencies
         working-directory: docs
         run: bun install --frozen-lockfile

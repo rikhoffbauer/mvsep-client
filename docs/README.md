@@ -34,3 +34,7 @@ The production URL is [rikhoffbauer.github.io/mvsep-client](https://rikhoffbauer
 - Assets: `public/`
 
 Keep examples in sync with the exported interfaces in `../src/types.ts` and `../src/extended-types.ts`. Do not use real API keys or initiate paid MVSep jobs during documentation testing.
+
+## Browser playground
+
+The [Playground](https://rikhoffbauer.github.io/mvsep-client/playground/) imports the browser-ready core SDK (`src/browser.ts`). MVSep does not allow browser CORS calls, so browser requests go through the separately deployed Vercel relay (`playground-relay/`) after explicit user consent. The relay URL comes from `PUBLIC_MVSEP_RELAY_URL`; its narrow API allowlist and credential-handling details are documented in the relay directory. Run `node --test playground-relay/test/*.test.mjs` from the repository root to exercise relay safety.

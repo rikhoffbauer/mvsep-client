@@ -8,11 +8,13 @@ export declare class MvsepClient {
     private readonly keyPool;
     private readonly limiter;
     private readonly semaphore;
-    private readonly transfers;
+    private transferInstance;
     private readonly defaultProgress;
     private readonly jobKeyAffinity;
     private readonly maxJobAffinities;
     constructor(options?: MvsepClientOptions);
+    /** Node-only file transfers load lazily; browser clients can use the API transport without Node built-ins. */
+    private transfers;
     get apiKeyState(): readonly {
         index: number;
         disabled: boolean;
