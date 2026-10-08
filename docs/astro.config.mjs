@@ -3,7 +3,7 @@ import starlight from '@astrojs/starlight';
 
 export default defineConfig({
   site: 'https://rikhoffbauer.github.io',
-  base: '/',
+  base: process.env.MVSEP_DOCS_BASE ?? '/',
   integrations: [
     starlight({
       title: 'MVSep Client',

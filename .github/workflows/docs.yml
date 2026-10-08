@@ -43,6 +43,7 @@ jobs:
         working-directory: docs
         env:
           PUBLIC_MVSEP_RELAY_URL: https://mvsep-client-playground.vercel.app/api/relay
+          MVSEP_DOCS_BASE: /mvsep-client
         run: bun run build
       - name: Validate internal links
         working-directory: docs

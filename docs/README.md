@@ -7,18 +7,18 @@ This directory is an independent [Astro Starlight](https://starlight.astro.build
 ```bash
 cd docs
 bun install --frozen-lockfile
-bun run dev
+MVSEP_DOCS_BASE=/mvsep-client bun run dev
 ```
 
 To verify the static output:
 
 ```bash
-bun run build
+MVSEP_DOCS_BASE=/mvsep-client bun run build
 bun run check:links
-bun run preview
+MVSEP_DOCS_BASE=/mvsep-client bun run preview
 ```
 
-The site uses `site: https://rikhoffbauer.github.io` and `base: /mvsep-client` to work when published from this GitHub repository. All root-relative links must include `/mvsep-client/`.
+The Astro default `base` is `/` for root-hosted development/other targets. The GitHub Pages workflow explicitly sets `MVSEP_DOCS_BASE=/mvsep-client` to publish into this repository path. All hardcoded documentation links use `/mvsep-client/`, so run local builds with the matching base when testing that deployment.
 
 ## Publication
 
