@@ -2,8 +2,8 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://rikhoffbauer.github.io',
-  base: process.env.MVSEP_DOCS_BASE ?? '/',
+  site: 'https://mvsep-client.vercel.app',
+  base: '/',
   integrations: [
     starlight({
       title: 'MVSep Client',

@@ -6,7 +6,7 @@ description: Operating the SDK safely with real credentials and paid jobs.
 ## Before enabling unattended submissions
 
 1. **Configure credentials securely.** Use secret storage; never log tokens or serialize full raw account responses.
-2. **Use a separate one-key client for each payer.** Rotating keys are fine for independent requests, but account billing checks are not pinned to an upcoming paid POST. See [API key rotation](/mvsep-client/guides/api-key-rotation/).
+2. **Use a separate one-key client for each payer.** Rotating keys are fine for independent requests, but account billing checks are not pinned to an upcoming paid POST. See [API key rotation](/guides/api-key-rotation/).
 3. **Use conservative create retries.** Keep `unsafeCreateRetries: 'safe'`; do not aggressively retry uncertain POST outcomes.
 4. **Persist job intent.** Store stable account identifiers and accepted hashes; use a write-ahead marker for batch jobs.
 5. **Budget by estimate.** Reject unknown prices; account balances are not reservations.
@@ -33,7 +33,7 @@ try {
 }
 ```
 
-Use [diagnostics](/mvsep-client/reference/utilities/) to instrument retries and job transitions without retaining API URLs or tokens.
+Use [diagnostics](/reference/utilities/) to instrument retries and job transitions without retaining API URLs or tokens.
 
 ## Known limitations
 

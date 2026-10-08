@@ -218,4 +218,4 @@ The [offline affinity demonstration](https://github.com/rikhoffbauer/mvsep-clien
 - **Long-running multi-key work:** configure stable `keyIdentifiers`, persist handles, and resume by `waitForJob()`.
 - **Uncertain create outcome:** inspect account history before retrying. Failover cannot resolve the missing hash, and it must not silently duplicate paid jobs.
 
-Related: [configuration](/mvsep-client/start/configuration/), [credit safety](/mvsep-client/guides/credits/), [job recovery](/mvsep-client/guides/recovery/), [batch processing](/mvsep-client/guides/batch/) and [API types](/mvsep-client/reference/options/).
+Related: [configuration](/start/configuration/), [credit safety](/guides/credits/), [job recovery](/guides/recovery/), [batch processing](/guides/batch/) and [API types](/reference/options/).

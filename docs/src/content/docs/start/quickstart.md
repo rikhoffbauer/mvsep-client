@@ -63,13 +63,13 @@ console.log(manifest.files.map(file => file.path));
 Create the destination directory before downloading. Transfers stream to temporary sibling files and rename them after completion; existing files are protected unless `overwrite: true`.
 
 :::caution[Paid operations]
-Create requests can consume credits. Default retries do not replay ambiguous create failures. Before creating expensive jobs, consider [credit estimates and spend caps](/mvsep-client/guides/credits/).
+Create requests can consume credits. Default retries do not replay ambiguous create failures. Before creating expensive jobs, consider [credit estimates and spend caps](/guides/credits/).
 :::
 
 ## Next steps
 
-The [example gallery](/mvsep-client/recipes/example-gallery/) includes complete, typechecked programs for each major workflow. Use [API key rotation](/mvsep-client/guides/api-key-rotation/) when configuring multiple credentials.
+The [example gallery](/recipes/example-gallery/) includes complete, typechecked programs for each major workflow. Use [API key rotation](/guides/api-key-rotation/) when configuring multiple credentials.
 
-- [Algorithm metadata](/mvsep-client/guides/algorithms/): determine the right model and its options.
-- [Upload and submission modes](/mvsep-client/guides/submissions/): URLs, presets and no-upload models.
-- [Crash recovery](/mvsep-client/guides/recovery/): resume a long-running job after restarting your app.
+- [Algorithm metadata](/guides/algorithms/): determine the right model and its options.
+- [Upload and submission modes](/guides/submissions/): URLs, presets and no-upload models.
+- [Crash recovery](/guides/recovery/): resume a long-running job after restarting your app.

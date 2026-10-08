@@ -67,7 +67,7 @@ await client.createSeparation({
 });
 ```
 
-See [webhook processing](/mvsep-client/guides/webhooks/) for verification and duplicate-delivery safety.
+See [webhook processing](/guides/webhooks/) for verification and duplicate-delivery safety.
 
 :::danger[Ambiguous submission outcome]
 If a create request loses its connection after sending, the job **may already exist** and have consumed credits. Under the default `unsafeCreateRetries: 'safe'` policy, the client does not automatically repeat such a request. Check account history before trying again.

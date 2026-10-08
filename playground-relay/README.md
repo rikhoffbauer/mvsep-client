@@ -1,6 +1,6 @@
 # MVSep documentation playground relay
 
-Stateless HTTPS bridge for `https://rikhoffbauer.github.io/mvsep-client/playground/`.
+Stateless HTTPS bridge for `https://mvsep-client.vercel.app/playground/`.
 MVSep currently does not return browser CORS headers. GitHub Pages cannot host a backend.
 
 - Fixed upstream `https://*.mvsep.com/api` hosts and fixed GET/POST endpoint allowlists.

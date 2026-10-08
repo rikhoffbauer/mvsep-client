@@ -40,4 +40,4 @@ Not safely without further checking. A failed transport may mask an accepted pai
 
 ## Missing functionality in the reference?
 
-Use the "Edit page" link or open an issue on [GitHub](https://github.com/rikhoffbauer/mvsep-client/issues). The low-level [`request<T>()`](/mvsep-client/reference/client/) method can access endpoints without dedicated wrappers.
+Use the "Edit page" link or open an issue on [GitHub](https://github.com/rikhoffbauer/mvsep-client/issues). The low-level [`request<T>()`](/reference/client/) method can access endpoints without dedicated wrappers.

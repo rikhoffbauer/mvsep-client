@@ -15,7 +15,7 @@ console.log(queue.estimated_wait_seconds); // null means unknown
 Additional read methods: `getQueue()`, `getSeparationHistory({ start, limit })`, `getPurchases({ status, offset, limit })` and `getCreditAlert()`. See the [complete account inspection example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/account-inspection.ts).
 
 :::caution[Multiple keys and billing]
-Unbound account reads such as `getUser()` rotate keys; `createGuardedSeparation` cannot promise the balance just read belongs to the key later selected for the paid POST. Use **one client per account** for reliable account-specific credit checks. See [API key rotation](/mvsep-client/guides/api-key-rotation/).
+Unbound account reads such as `getUser()` rotate keys; `createGuardedSeparation` cannot promise the balance just read belongs to the key later selected for the paid POST. Use **one client per account** for reliable account-specific credit checks. See [API key rotation](/guides/api-key-rotation/).
 :::
 
 ## Estimate credits
@@ -67,5 +67,5 @@ await client.setLongFilenamesEnabled(true);
 The SDK never toggles Premium automatically. The mirror option in `getSeparation(hash, { mirror: true })` requires an API key and is documented by MVSep as consuming one credit.
 
 :::danger[No automatic replay after uncertain POST]
-MVSep does not provide a documented idempotency key for `POST /separation/create`. An error or connection drop is **not** proof that a job was rejected. See [job recovery](/mvsep-client/guides/recovery/) and [batch checkpoints](/mvsep-client/guides/batch/).
+MVSep does not provide a documented idempotency key for `POST /separation/create`. An error or connection drop is **not** proof that a job was rejected. See [job recovery](/guides/recovery/) and [batch checkpoints](/guides/batch/).
 :::

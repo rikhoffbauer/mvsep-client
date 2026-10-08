@@ -1,6 +1,6 @@
 # MVSep SDK examples
 
-The complete, typechecked examples here accompany the [Starlight example gallery](https://rikhoffbauer.github.io/mvsep-client/recipes/example-gallery/). Run them from the repository root with Bun.
+The complete, typechecked examples here accompany the [Starlight example gallery](https://mvsep-client.vercel.app/recipes/example-gallery/). Run them from the repository root with Bun.
 
 ## Safe to run offline
 

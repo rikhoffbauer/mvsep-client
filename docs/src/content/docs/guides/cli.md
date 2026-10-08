@@ -39,7 +39,7 @@ mvsep submit --url https://example.com/song.wav --algorithm 20 --handle job.json
 mvsep resume job.json
 ```
 
-The CLI uses the SDK's **default round-robin** rotation for unbound authenticated requests. `models` is a public algorithm read and does not consume a key; `submit` is a possibly billable POST. A saved handle keeps the originating stable account ID. For configuring `sticky` instead of round-robin, or for precise per-account billing, use the [TypeScript client](/mvsep-client/guides/api-key-rotation/).
+The CLI uses the SDK's **default round-robin** rotation for unbound authenticated requests. `models` is a public algorithm read and does not consume a key; `submit` is a possibly billable POST. A saved handle keeps the originating stable account ID. For configuring `sticky` instead of round-robin, or for precise per-account billing, use the [TypeScript client](/guides/api-key-rotation/).
 
 ## Environment
 

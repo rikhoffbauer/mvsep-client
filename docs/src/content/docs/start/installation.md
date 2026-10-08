@@ -53,7 +53,7 @@ const client = new MvsepClient({
 });
 ```
 
-**Important:** MVSep does not currently return browser CORS headers. A direct browser `fetch` will be blocked even with valid keys. The [interactive playground](/mvsep-client/playground/) integrates a carefully restricted HTTPS relay with an explicit consent notice. Browser users can supply a compatible `fetch` adapter and must understand who operates it. Disk-backed helpers such as `fileBlobFromPath` and atomic `downloadToFile` require Node.js; browser API methods and in-memory blobs work.
+**Important:** MVSep does not currently return browser CORS headers. A direct browser `fetch` will be blocked even with valid keys. The [interactive playground](/playground/) integrates a carefully restricted HTTPS relay with an explicit consent notice. Browser users can supply a compatible `fetch` adapter and must understand who operates it. Disk-backed helpers such as `fileBlobFromPath` and atomic `downloadToFile` require Node.js; browser API methods and in-memory blobs work.
 
 ## CLI
 
@@ -64,4 +64,4 @@ bunx mvsep help
 # or: ./node_modules/.bin/mvsep help
 ```
 
-Continue with the [quick start](/mvsep-client/start/quickstart/).
+Continue with the [quick start](/start/quickstart/).

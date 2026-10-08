@@ -9,7 +9,7 @@ async function serving(callback) {
   try { await callback('http://127.0.0.1:' + server.address().port + '/api/relay'); }
   finally { await new Promise(resolve => server.close(resolve)); }
 }
-const origin = 'https://rikhoffbauer.github.io';
+const origin = 'https://mvsep-client.vercel.app';
 const call = (url, options = {}) => fetch(url, { ...options, headers: { Origin: origin, ...options.headers } });
 
 test('rejects unsupported origins even for preflight', async () => {

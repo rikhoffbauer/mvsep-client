@@ -6,6 +6,7 @@
 export const config = { api: { bodyParser: false } };
 
 const ORIGINS = new Set([
+  'https://mvsep-client.vercel.app',
   'https://rikhoffbauer.github.io',
   'http://localhost:4321',
   'http://127.0.0.1:4321',

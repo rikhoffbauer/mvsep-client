@@ -48,5 +48,5 @@ const restored = await client.restoreJobHandles(store);
 `saveJobHandles()` validates handles and delegates persistence to your adapter. No database dependency is imposed on the core SDK.
 
 :::caution[When creation fails without returning a hash]
-An unknown POST outcome is **not recoverable from a handle** because the hash was never returned. Inspect MVSep account history before deciding whether another submission is safe. A [batch runner](/mvsep-client/guides/batch/) writes a pending-submission marker before each create to avoid automatic duplicates after crashes.
+An unknown POST outcome is **not recoverable from a handle** because the hash was never returned. Inspect MVSep account history before deciding whether another submission is safe. A [batch runner](/guides/batch/) writes a pending-submission marker before each create to avoid automatic duplicates after crashes.
 :::

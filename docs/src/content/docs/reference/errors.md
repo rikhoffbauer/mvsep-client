@@ -46,4 +46,4 @@ Public error URLs scrub sensitive query fields such as `api_token`, and known se
 
 ## Critical create-job rule
 
-An uncertain POST outcome is not proof of rejection. The `safe` policy only retries explicit 429 responses. `aggressive` may duplicate paid work. See [credit safety](/mvsep-client/guides/credits/) and [recovery](/mvsep-client/guides/recovery/).
+An uncertain POST outcome is not proof of rejection. The `safe` policy only retries explicit 429 responses. `aggressive` may duplicate paid work. See [credit safety](/guides/credits/) and [recovery](/guides/recovery/).

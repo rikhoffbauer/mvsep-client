@@ -2,7 +2,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, resolve, relative, sep } from 'node:path';
 
 const root = resolve('dist');
-const base = '/mvsep-client';
+// Documentation is served from the Vercel domain root, never a project subpath.
+const base = '/';
 const pages = [];
 async function walk(directory) {
   for (const item of await readdir(directory, { withFileTypes: true })) {
@@ -22,11 +23,11 @@ for (const page of pages) {
     if (/^(?:https?:|mailto:|tel:|data:|javascript:|#)/.test(raw)) continue;
     const path = decodeURI(raw.split(/[?#]/, 1)[0]);
     if (!path) continue;
-    if (path.startsWith('/') && !path.startsWith(`${base}/`) && path !== base) {
-      errors.push(`${relative(root, page)}: unprefixed root URL ${raw}`);
+    if (!path.startsWith('/')) continue; // non-root-relative link
+    if (path.startsWith('/mvsep-client/')) {
+      errors.push(`${relative(root, page)}: obsolete GitHub Pages prefix ${raw}`);
       continue;
     }
-    if (!path.startsWith(`${base}/`)) continue; // relative fragment/link
     const fromRoot = path.slice(base.length).replace(/^\/+/, '');
     const target = resolve(root, fromRoot);
     if (!target.startsWith(root + sep) && target !== root) {

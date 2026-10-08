@@ -68,7 +68,7 @@ In-memory affinity is bounded by `maxJobAffinities`; use durable handles with st
 | `getQualityQueue(query?, options?)` | `Promise<MvsepQualityEntry[]>` |
 | `getQualityEntry(id, options?)` | `Promise<MvsepQualityEntry>` |
 
-Query shapes and page limits are described in [Types](/mvsep-client/reference/types/).
+Query shapes and page limits are described in [Types](/reference/types/).
 
 ## Transfers
 
@@ -93,7 +93,7 @@ Transfer options include `timeoutMs`, `signal`, `maxBytes`, `maxAttempts` and a 
 | `restoreJobHandles(store)` | `Promise<MvsepJobHandle[]>` |
 | `watchJob(hash, options?)` | `AsyncGenerator<JobWatchEvent>` |
 
-See [recovery](/mvsep-client/guides/recovery/) and [polling](/mvsep-client/guides/polling/).
+See [recovery](/guides/recovery/) and [polling](/guides/polling/).
 
 ## Complete usage examples
 
@@ -166,7 +166,7 @@ console.log(keyIndex, status.status);
 client.forgetJobApiKey('existing-job-hash'); // only removes local affinity
 ```
 
-For round-robin/sticky comparisons, error failover and a mock that never makes network requests, see [API key rotation](/mvsep-client/guides/api-key-rotation/).
+For round-robin/sticky comparisons, error failover and a mock that never makes network requests, see [API key rotation](/guides/api-key-rotation/).
 
 ### Stream all statuses and optional queue updates
 
@@ -208,7 +208,7 @@ Account reads are not tied to a job hash. **Use a separate one-key client for ea
 
 ### More API examples
 
-- [Discovery and pricing](/mvsep-client/guides/algorithms/): algorithms, options, demos, quality leaderboard and cache invalidation.
-- [Credit safety](/mvsep-client/guides/credits/): cost caps, account preferences and read-only account endpoints.
-- [Batch and checkpoints](/mvsep-client/guides/batch/): concurrent workers, pause/resume and duplicate prevention.
-- [Example gallery](/mvsep-client/recipes/example-gallery/): complete runnable files for these workflows, including offline mocks.
+- [Discovery and pricing](/guides/algorithms/): algorithms, options, demos, quality leaderboard and cache invalidation.
+- [Credit safety](/guides/credits/): cost caps, account preferences and read-only account endpoints.
+- [Batch and checkpoints](/guides/batch/): concurrent workers, pause/resume and duplicate prevention.
+- [Example gallery](/recipes/example-gallery/): complete runnable files for these workflows, including offline mocks.

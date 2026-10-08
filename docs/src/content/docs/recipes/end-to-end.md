@@ -46,4 +46,4 @@ Run:
 MVSEP_API_KEY=your-token bun run separate.ts input.wav ./stems
 ```
 
-For premium-priced models, use [guarded creation](/mvsep-client/guides/credits/) rather than unguarded `createAndWait`. For unattended automation, persist a handle immediately after `createJob()` returns, or use [batch checkpoints](/mvsep-client/guides/batch/).
+For premium-priced models, use [guarded creation](/guides/credits/) rather than unguarded `createAndWait`. For unattended automation, persist a handle immediately after `createJob()` returns, or use [batch checkpoints](/guides/batch/).

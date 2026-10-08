@@ -41,7 +41,7 @@ runner.resume();
 runner.stop();
 ```
 
-`runBatch(client, inputs, options?)` returns `Promise<BatchResult[]>`. `BatchRunner` is a controller for pausing new submissions and stopping local work. See [batch processing](/mvsep-client/guides/batch/).
+`runBatch(client, inputs, options?)` returns `Promise<BatchResult[]>`. `BatchRunner` is a controller for pausing new submissions and stopping local work. See [batch processing](/guides/batch/).
 
 ## Local artifact cache
 
@@ -118,7 +118,7 @@ console.log(prepared.input);
 
 ## Complete diagnostics example
 
-See [`offline-diagnostics.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/offline-diagnostics.ts) for a **runnable, zero-credit** test of subscriptions, progress-event recording and clearing the bounded event buffer. [API key rotation](/mvsep-client/guides/api-key-rotation/) demonstrates observing `keyIndex` and `key_rotation` separately.
+See [`offline-diagnostics.ts`](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/offline-diagnostics.ts) for a **runnable, zero-credit** test of subscriptions, progress-event recording and clearing the bounded event buffer. [API key rotation](/guides/api-key-rotation/) demonstrates observing `keyIndex` and `key_rotation` separately.
 
 ## All optional subpaths
 

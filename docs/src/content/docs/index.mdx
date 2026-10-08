@@ -11,7 +11,7 @@ hero:
   tagline: A dependency-free TypeScript SDK for the MVSep API. Submit jobs, track progress, manage credits, stream multigigabyte outputs, and recover safely after restarts.
   actions:
     - text: Get started
-      link: /mvsep-client/start/quickstart/
+      link: /start/quickstart/
       icon: right-arrow
     - text: View on GitHub
       link: https://github.com/rikhoffbauer/mvsep-client
@@ -23,20 +23,20 @@ import { CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
 
 <Badge text="TypeScript" variant="tip" /> <Badge text="Node 20+ & Bun" /> <Badge text="No runtime dependencies" />
 
-**[Open the interactive API playground](/mvsep-client/playground/)** — bring your own keys to explore algorithms, job status and safe SDK requests.
+**[Open the interactive API playground](/playground/)** — bring your own keys to explore algorithms, job status and safe SDK requests.
 
 ## Everything from submission to output
 
 <CardGrid>
-  <LinkCard title="Submit and track jobs" description="Remote URLs, local files, presets, matchering, polling, cancellation and progress events." href="/mvsep-client/guides/submissions/" />
-  <LinkCard title="Stream large audio" description="Backpressure-aware downloads to disk or WritableStream with atomic files and byte-level progress." href="/mvsep-client/guides/downloads/" />
-  <LinkCard title="Protect your credits" description="Estimate spend, enforce limits, inspect account balance and keep unsafe retries disabled." href="/mvsep-client/guides/credits/" />
-  <LinkCard title="Recover and automate" description="Serializable job handles, crash-safe checkpoints, server-side batch limits and a CLI." href="/mvsep-client/guides/recovery/" />
+  <LinkCard title="Submit and track jobs" description="Remote URLs, local files, presets, matchering, polling, cancellation and progress events." href="/guides/submissions/" />
+  <LinkCard title="Stream large audio" description="Backpressure-aware downloads to disk or WritableStream with atomic files and byte-level progress." href="/guides/downloads/" />
+  <LinkCard title="Protect your credits" description="Estimate spend, enforce limits, inspect account balance and keep unsafe retries disabled." href="/guides/credits/" />
+  <LinkCard title="Recover and automate" description="Serializable job handles, crash-safe checkpoints, server-side batch limits and a CLI." href="/guides/recovery/" />
 </CardGrid>
 
 ## More than snippets
 
-All major workflows have [runnable TypeScript examples](/mvsep-client/recipes/example-gallery/), including **offline, no-credential demonstrations** of API-key rotation, retry behavior and restart-safe job affinity.
+All major workflows have [runnable TypeScript examples](/recipes/example-gallery/), including **offline, no-credential demonstrations** of API-key rotation, retry behavior and restart-safe job affinity.
 
 ## Start with a few lines
 
@@ -57,4 +57,4 @@ const manifest = await client.downloadSeparationOutputs(result, './stems');
 console.log(manifest.files);
 ```
 
-The SDK is not affiliated with MVSep. Creating some jobs or using premium mirror modes can consume paid credits; see [credit safety](/mvsep-client/guides/credits/).
+The SDK is not affiliated with MVSep. Creating some jobs or using premium mirror modes can consume paid credits; see [credit safety](/guides/credits/).

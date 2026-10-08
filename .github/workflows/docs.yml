@@ -1,4 +1,4 @@
-name: Deploy documentation
+name: Validate documentation
 
 on:
   push:
@@ -13,11 +13,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: github-pages
+  group: docs-validation
   cancel-in-progress: true
 
 jobs:
@@ -43,24 +41,7 @@ jobs:
         working-directory: docs
         env:
           PUBLIC_MVSEP_RELAY_URL: https://mvsep-client-playground.vercel.app/api/relay
-          MVSEP_DOCS_BASE: /mvsep-client
         run: bun run build
       - name: Validate internal links
         working-directory: docs
         run: bun run check:links
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: docs/dist
-
-  deploy:
-    name: Publish GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4

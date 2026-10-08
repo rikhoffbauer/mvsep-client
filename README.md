@@ -1,8 +1,8 @@
 # MVSep TypeScript client
 
-**Documentation:** https://rikhoffbauer.github.io/mvsep-client/ — installation, guides, API reference, CLI and production workflows.
-**Playground:** https://rikhoffbauer.github.io/mvsep-client/playground/ — try the SDK with your keys, using an explicit-consent HTTPS relay.
-**Examples:** https://rikhoffbauer.github.io/mvsep-client/recipes/example-gallery/ — runnable scenarios, including offline tests of key rotation and recovery.
+**Documentation:** https://mvsep-client.vercel.app/ — installation, guides, API reference, CLI and production workflows.
+**Playground:** https://mvsep-client.vercel.app/playground/ — try the SDK with your keys, using an explicit-consent HTTPS relay.
+**Examples:** https://mvsep-client.vercel.app/recipes/example-gallery/ — runnable scenarios, including offline tests of key rotation and recovery.
 
 
 A resilient, typed client for the [MVSep API](https://mvsep.com/en/full_api), designed for Bun and modern Node.js.

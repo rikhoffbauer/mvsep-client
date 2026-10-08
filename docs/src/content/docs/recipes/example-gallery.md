@@ -84,7 +84,7 @@ MVSEP_ALLOW_PAID=1 \
 bun run examples/process-file.ts song.wav ./stems
 ```
 
-The example requires an explicit paid-job opt-in to prevent accidental spending. Replace algorithm ID 20 with a currently offered single-upload model discovered by the public API. For enforced pricing limits, use [guarded creation](/mvsep-client/guides/credits/) instead.
+The example requires an explicit paid-job opt-in to prevent accidental spending. Replace algorithm ID 20 with a currently offered single-upload model discovered by the public API. For enforced pricing limits, use [guarded creation](/guides/credits/) instead.
 
 ## Schedule a batch (**possibly billable**)
 
@@ -174,4 +174,4 @@ try {
 // controller.abort() stops local waiting but does not cancel the server job.
 ```
 
-For full signatures and available option fields, see the [client reference](/mvsep-client/reference/client/), [options](/mvsep-client/reference/options/), [types](/mvsep-client/reference/types/) and [utility APIs](/mvsep-client/reference/utilities/).
+For full signatures and available option fields, see the [client reference](/reference/client/), [options](/reference/options/), [types](/reference/types/) and [utility APIs](/reference/utilities/).
