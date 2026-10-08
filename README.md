@@ -1,5 +1,8 @@
 # MVSep TypeScript client
 
+**Documentation:** https://rikhoffbauer.github.io/mvsep-client/ — installation, guides, API reference, CLI and production workflows.
+
+
 A resilient, typed client for the [MVSep API](https://mvsep.com/en/full_api), designed for Bun and modern Node.js.
 
 Runtime dependencies: **none**. It uses the standard Fetch, FormData, Blob, AbortController and Web Streams APIs.

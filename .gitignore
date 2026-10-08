@@ -1,3 +1,6 @@
 node_modules/
 *.tgz
 .DS_Store
+.astro/
+docs/.cache/
+/docs/dist/

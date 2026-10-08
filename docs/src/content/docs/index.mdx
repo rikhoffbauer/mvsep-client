@@ -1,0 +1,54 @@
+---
+title: MVSep Client
+head:
+  - tag: meta
+    attrs:
+      name: keywords
+      content: mvsep, typescript, stems, source separation, music, audio, bun, sdk
+template: splash
+hero:
+  title: Audio separation, without the boilerplate.
+  tagline: A dependency-free TypeScript SDK for the MVSep API. Submit jobs, track progress, manage credits, stream multigigabyte outputs, and recover safely after restarts.
+  actions:
+    - text: Get started
+      link: /mvsep-client/start/quickstart/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/rikhoffbauer/mvsep-client
+      icon: external
+      variant: minimal
+---
+
+import { CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
+
+<Badge text="TypeScript" variant="tip" /> <Badge text="Node 20+ & Bun" /> <Badge text="No runtime dependencies" />
+
+## Everything from submission to output
+
+<CardGrid>
+  <LinkCard title="Submit and track jobs" description="Remote URLs, local files, presets, matchering, polling, cancellation and progress events." href="/mvsep-client/guides/submissions/" />
+  <LinkCard title="Stream large audio" description="Backpressure-aware downloads to disk or WritableStream with atomic files and byte-level progress." href="/mvsep-client/guides/downloads/" />
+  <LinkCard title="Protect your credits" description="Estimate spend, enforce limits, inspect account balance and keep unsafe retries disabled." href="/mvsep-client/guides/credits/" />
+  <LinkCard title="Recover and automate" description="Serializable job handles, crash-safe checkpoints, server-side batch limits and a CLI." href="/mvsep-client/guides/recovery/" />
+</CardGrid>
+
+## Start with a few lines
+
+```bash
+bun add git@github.com:rikhoffbauer/mvsep-client.git
+```
+
+```ts
+import { MvsepClient, fileBlobFromPath } from '@rikhoffbauer/mvsep-client';
+
+const client = new MvsepClient({ apiKeys: process.env.MVSEP_API_KEY });
+const result = await client.createAndWait({
+  audiofile: await fileBlobFromPath('song.wav', 'audio/wav'),
+  sepType: 20, // example algorithm ID — discover current IDs at runtime
+});
+
+const manifest = await client.downloadSeparationOutputs(result, './stems');
+console.log(manifest.files);
+```
+
+The SDK is not affiliated with MVSep. Creating some jobs or using premium mirror modes can consume paid credits; see [credit safety](/mvsep-client/guides/credits/).
