@@ -5,6 +5,7 @@ The complete, typechecked examples here accompany the [Starlight example gallery
 ## Safe to run offline
 
 ```bash
+bun run examples/workflow.ts
 bun run examples/key-rotation.ts
 bun run examples/key-affinity.ts
 bun run examples/offline-diagnostics.ts

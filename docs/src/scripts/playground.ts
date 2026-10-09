@@ -1,4 +1,5 @@
 import { MvsepClient } from '../../../src/browser.ts';
+import { mountWorkflowDesigner } from './workflow-designer.ts';
 import type { MvsepProgressEvent, SeparationAlgorithm } from '../../../src/types.ts';
 
 const root = document.querySelector<HTMLElement>('.pg');
@@ -17,6 +18,57 @@ function init(root: HTMLElement) {
   let last = '';
   let eventCount = 0;
   let sessionVersion = 0;
+  let activeAlgorithm: SeparationAlgorithm | null = null;
+  let optionGeneration = 0;
+  const optionNames = new Set(['add_opt1','add_opt2','add_opt3']);
+  const optionRoot = $('pg-model-options');
+  function optionChoices(field: NonNullable<SeparationAlgorithm['algorithm_fields']>[number]): {key:string;label:string}[] {
+    let source=field.options;
+    if(typeof source==='string') {try {source=JSON.parse(source) as typeof field.options;}catch {return [];}}
+    if(!source)return [];
+    if(Array.isArray(source)) return source.filter(value=>value&&value.key!==undefined).map(value=>({key:String(value.key),label:String(value.value??value.name??value.key)}));
+    return Object.entries(source).map(([key,label])=>({key,label:String(label)}));
+  }
+  function drawCreateOptions(algorithm:SeparationAlgorithm|null) {
+    optionRoot.replaceChildren();
+    if(!algorithm) {optionRoot.textContent='Select an algorithm to inspect its options.';return;}
+    if(algorithm.audio_widget==='matchering_upload') {
+      optionRoot.textContent='This algorithm requires two inputs (target and reference). Use the SDK directly.';
+      return;
+    }
+    const fields=(algorithm.algorithm_fields??[]).filter(field=>optionNames.has(field.name??''));
+    if(!fields.length) {optionRoot.textContent='This model has no additional configurable fields.';return;}
+    for(const field of fields) {
+      const group=document.createElement('label');
+      const title=document.createElement('span');title.textContent=field.text??field.name??'Option';group.append(title);
+      const choices=optionChoices(field);
+      let input:HTMLInputElement|HTMLSelectElement;
+      if(choices.length) {
+        const select=document.createElement('select');select.add(new Option('Use model default'+(field.default_key===undefined?'':' ('+String(field.default_key)+')'),''));
+        for(const choice of choices) select.add(new Option(choice.label,choice.key));
+        input=select;
+      } else {const fieldInput=document.createElement('input');fieldInput.placeholder='Value';input=fieldInput;}
+      input.dataset.field=field.name;group.append(input);optionRoot.append(group);
+    }
+  }
+  async function loadCreateOptions() {
+    const version=++optionGeneration;
+    const id=Number(val('pg-algorithm'));
+    activeAlgorithm=null;
+    drawCreateOptions(null);
+    if(!client||!val('pg-algorithm')||!Number.isSafeInteger(id)||id<0)return;
+    optionRoot.textContent='Loading live model options…';
+    try {
+      const algorithm=await client.getAlgorithm(id);
+      if(version!==optionGeneration)return;
+      activeAlgorithm=algorithm;drawCreateOptions(algorithm);
+      if(algorithm.audio_widget==='no_upload') {
+        const radio=root.querySelector<HTMLInputElement>('input[name=pg-input][value=no_upload]');
+        if(radio) {radio.checked=true;radio.dispatchEvent(new Event('change'));}
+      }
+    }catch(error){if(version===optionGeneration){optionRoot.textContent='Could not load model options: '+(error instanceof Error?error.message:String(error));}}
+  }
+  let designer: ReturnType<typeof mountWorkflowDesigner> | null = null;
   const eventList = $('pg-events');
   const keyList = $('pg-keys');
   const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-tab]'));
@@ -129,7 +181,7 @@ function init(root: HTMLElement) {
     }
   });
   $('pg-disconnect').addEventListener('click', () => {
-    ++sessionVersion; abort?.abort(); abort = null; client = null; keys = [];
+    ++sessionVersion; designer?.disconnect(); abort?.abort(); abort = null; client = null; keys = [];
     connected(false); state();
     set('pg-response', '// Disconnected. Credentials removed from playground memory.');
     set('pg-response-status', 'Disconnected'); last = '';
@@ -141,6 +193,7 @@ function init(root: HTMLElement) {
     $<HTMLButtonElement>('pg-copy').disabled = true;
   });
   $('pg-copy').addEventListener('click', async () => { if (last) await navigator.clipboard.writeText(last); });
+  $('pg-algorithm').addEventListener('change',()=>{void loadCreateOptions();});
   for (const tab of tabs) tab.addEventListener('click', () => {
     tabs.forEach(button => button.setAttribute('aria-selected', String(tab === button)));
     root.querySelectorAll<HTMLElement>('[data-pane]').forEach(pane => { pane.hidden = pane.dataset.pane !== tab.dataset.tab; });
@@ -161,6 +214,7 @@ function init(root: HTMLElement) {
       button.addEventListener('click', () => {
         $<HTMLInputElement>('pg-algorithm').value = String(model.render_id);
         tabs.find(tab => tab.dataset.tab === 'create')?.click();
+        void loadCreateOptions();
       });
       list.append(button);
     }
@@ -241,17 +295,21 @@ function init(root: HTMLElement) {
           if (fileMode && !file) throw Error('Choose a file.');
           if (fileMode && file && file.size > 2 * 1024 * 1024) throw Error('Maximum 2 MiB. Use a remote URL instead.');
           if (mode === 'url' && (!url.startsWith('https://') || !new URL(url).hostname)) throw Error('Provide a publicly reachable HTTPS audio URL.');
-          if (!confirm('Submit this separation to MVSep? It can consume paid credits. Cost is not guaranteed. Continue?')) return;
           const format = val('pg-format');
           const input = {
             sepType: id,
             ...(fileMode && file ? { audiofile: { data: file, filename: file.name, contentType: file.type || 'application/octet-stream' } } : noUpload ? {} : { url }),
             ...(format ? { outputFormat: Number(format) as 0|1|2|3|4|5 } : {}),
-            ...(val('pg-opt1') ? { addOpt1: val('pg-opt1') } : {}),
-            ...(val('pg-opt2') ? { addOpt2: val('pg-opt2') } : {}),
-            ...(val('pg-opt3') ? { addOpt3: val('pg-opt3') } : {}),
+
           };
-          const created = await client.createSeparation(input, { signal });
+          if (!activeAlgorithm || activeAlgorithm.render_id!==id) throw Error('Load live algorithm metadata and review options before submission');
+          const fields:Record<string,string>={};
+          optionRoot.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[data-field]').forEach(field=>{
+            if(field.value) fields[field.dataset.field!]=field.value;
+          });
+          const prepared=client.prepareSeparation({algorithm:activeAlgorithm,input,fields});
+          if (!confirm('Submit this separation to MVSep? Processing can consume paid credits. Cost is not guaranteed. Continue?')) return;
+          const created = await client.createSeparation(prepared.input, { signal });
           if (created.data?.hash) {
             $<HTMLInputElement>('pg-hash').value = created.data.hash;
             const index = client.getJobApiKeyIndex(created.data.hash);
@@ -283,4 +341,9 @@ function init(root: HTMLElement) {
     }
   }
   root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => button.addEventListener('click', () => { void execute(button.dataset.action!); }));
+  designer = mountWorkflowDesigner(root, {
+    client: () => client,
+    onLog: message => log('[graph] ' + message),
+    onResult: (name, value) => result(name, value, performance.now()),
+  });
 }

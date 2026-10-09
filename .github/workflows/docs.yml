@@ -27,6 +27,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: Test offline SDK examples
         run: |
+          bun run examples/workflow.ts
           bun run examples/key-rotation.ts
           bun run examples/key-affinity.ts
           bun run examples/offline-diagnostics.ts

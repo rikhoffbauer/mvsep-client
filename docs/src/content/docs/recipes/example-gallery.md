@@ -11,6 +11,7 @@ All commands assume you've cloned the repository and run `bun install --frozen-l
 
 | Example | What it illustrates | Online / paid? |
 | --- | --- | --- |
+| [Workflow graph](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/workflow.ts) | Compose Demucs → DrumSep / Synth DAGs and validate before running | **Offline; no credits** |
 | [API key rotation](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/key-rotation.ts) | Round robin, sticky, 401 failover, 429 cooldown, observability, mocked Fetch | **Offline; no credits** |
 | [Key affinity and recovery](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/key-affinity.ts) | Create, job-bound status and restore with reordered key list | **Offline; no credits** |
 | [Credit guards](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/credit-guards.ts) | Reject unknown pricing, over-budget submissions, insufficient credits or disabled premium | **Offline; no credits** |
@@ -28,6 +29,7 @@ All commands assume you've cloned the repository and run `bun install --frozen-l
 ## Execute safe, zero-credit examples
 
 ```bash
+bun run examples/workflow.ts
 bun run examples/key-rotation.ts
 bun run examples/key-affinity.ts
 bun run examples/offline-diagnostics.ts

@@ -1,13 +1,38 @@
 # MVSep TypeScript client
 
 **Documentation:** https://mvsep-client.vercel.app/ — installation, guides, API reference, CLI and production workflows.
-**Playground:** https://mvsep-client.vercel.app/playground/ — try the SDK with your keys, using an explicit-consent HTTPS relay.
+**Playground:** https://mvsep-client.vercel.app/playground/ — try the SDK and compose audio workflow graphs with an explicit-consent HTTPS relay.
+**Workflow graph guide:** https://mvsep-client.vercel.app/guides/workflows/ — typed `separate(...).pipe(...)` pipelines with stem-aware execution.
 **Examples:** https://mvsep-client.vercel.app/recipes/example-gallery/ — runnable scenarios, including offline tests of key rotation and recovery.
 
 
 A resilient, typed client for the [MVSep API](https://mvsep.com/en/full_api), designed for Bun and modern Node.js.
 
 Runtime dependencies: **none**. It uses the standard Fetch, FormData, Blob, AbortController and Web Streams APIs.
+
+
+## Composable audio workflows
+
+Build and inspect dependency graphs without calling the API:
+
+```ts
+import { Models, separate } from '@rikhoffbauer/mvsep-client/workflow';
+
+const songAudio = 'https://example.com/song.wav';
+const { drums, vocals, other, bass } = separate(Models.Demucs4_HT).pipe(songAudio);
+const { hh, crash, ride, kick, cymbals, toms, snare } =
+  drums.pipe(separate(Models.DrumSep, { add_opt2: 1 }));
+const { synth, other: synth_rest } = other.pipe(separate(Models.MVSep_Synth));
+
+console.log(drums.graph.document); // typed, serializable workflow DAG
+// To submit jobs: await drums.graph.run(client, {
+//   allowPaid: true,
+//   confirmSubmit: (node, resolvedInputUrl) => obtainExplicitApproval(),
+// });
+```
+
+Use the [visual editor](https://mvsep-client.vercel.app/playground/) (Workflows tab) to arrange nodes, connect named outputs to inputs, configure each model using live MVSep option metadata and export JSON/TypeScript. The runtime checks option values, waits for upstream jobs and matches downstream input stems by **name**, refusing missing or ambiguous outputs. Workflow graph construction is entirely offline; each job submission requires explicit approval. See the [workflows guide](https://mvsep-client.vercel.app/guides/workflows/) and [offline example](examples/workflow.ts).
+
 
 ## Features
 

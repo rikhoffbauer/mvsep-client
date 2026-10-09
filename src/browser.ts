@@ -6,3 +6,5 @@ export * from "./errors.js";
 export * from "./types.js";
 export * from "./extended-types.js";
 export * from "./metadata.js";
+
+export * from "./workflow.js";

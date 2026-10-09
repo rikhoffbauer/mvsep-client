@@ -24,6 +24,7 @@ export default defineConfig({
         ] },
         { label: 'Guides', items: [
           { slug: 'guides/api-key-rotation' },
+          { slug: 'guides/workflows' },
           { slug: 'guides/algorithms' },
           { slug: 'guides/submissions' },
           { slug: 'guides/polling' },
