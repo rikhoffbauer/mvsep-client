@@ -197,6 +197,7 @@ function init(root: HTMLElement) {
   for (const tab of tabs) tab.addEventListener('click', () => {
     tabs.forEach(button => button.setAttribute('aria-selected', String(tab === button)));
     root.querySelectorAll<HTMLElement>('[data-pane]').forEach(pane => { pane.hidden = pane.dataset.pane !== tab.dataset.tab; });
+    if (tab.dataset.tab === 'workflow') requestAnimationFrame(() => designer?.fit());
   });
   root.querySelectorAll<HTMLInputElement>('input[name=pg-input]').forEach(radio => radio.addEventListener('change', () => {
     const mode = root.querySelector<HTMLInputElement>('input[name=pg-input]:checked')?.value;

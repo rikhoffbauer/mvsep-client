@@ -1,10 +1,12 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import react from '@astrojs/react';
 
 export default defineConfig({
   site: 'https://mvsep-client.vercel.app',
   base: '/',
   integrations: [
+    react(),
     starlight({
       title: 'MVSep Client',
       description: 'TypeScript SDK for MVSep: stem separation, job orchestration, credits, and streaming downloads.',

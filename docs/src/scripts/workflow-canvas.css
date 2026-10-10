@@ -1,0 +1,82 @@
+.wf-flow {
+  --wf-accent: #34bda3;
+  --wf-source: #6d8ff0;
+  --wf-edge: #8198a6;
+  --wf-minimap-mask: #0a101ab8;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+}
+.wf-rf-root { width: 100%; height: 100%; }
+.wf-rf-root .react-flow { --xy-background-color: transparent; }
+.wf-rf-root .react-flow__background { opacity: .6; }
+.wf-rf-root .react-flow__attribution { font-size: 10px; background: var(--sl-color-bg); }
+.wf-rf-root .react-flow__edge-path { stroke-linecap: round; }
+.wf-rf-root .react-flow__edge.selected .react-flow__edge-path { stroke: var(--wf-accent) !important; }
+.wf-rf-root .react-flow__connection-path { stroke: var(--wf-accent); stroke-width: 2px; }
+.wf-rf-root .react-flow__node-audio { border-radius: 13px; width: 255px; }
+.wf-rf-node {
+  width: 255px;
+  color: var(--sl-color-text);
+  background: var(--sl-color-bg);
+  border: 1px solid var(--sl-color-gray-5);
+  box-shadow: 0 7px 26px #0002, 0 2px 7px #0001;
+  border-radius: 13px;
+  overflow: visible;
+  font-size: 12px;
+  user-select: none;
+}
+.wf-rf-node.wf-rf-selected { border-color: var(--wf-accent); box-shadow: 0 0 0 2px #34bda340, 0 9px 28px #0003; }
+.wf-rf-node.wf-rf-running { border-color: #dca53a; }
+.wf-rf-node.wf-rf-failed { border-color: #d46565; }
+.wf-rf-heading {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 15px 12px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(130deg, color-mix(in srgb, var(--sl-color-bg-nav), var(--wf-accent) 7%), var(--sl-color-bg));
+  border-bottom: 1px solid var(--sl-color-gray-5);
+}
+.wf-rf-overline { font-weight: 800; font-size: 9px; letter-spacing: .16em; color: var(--sl-color-text-accent); }
+.wf-rf-heading strong { font-weight: 750; font-size: 14px; letter-spacing: -.025em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-rf-subline { font-size: 10px; color: var(--sl-color-gray-3); }
+.wf-rf-ports { padding: 9px 0; }
+.wf-rf-port { display: flex; position: relative; align-items: center; gap: 8px; height: 33px; padding: 0 17px; }
+.wf-rf-port:hover { background: color-mix(in srgb, var(--sl-color-accent), transparent 94%); }
+.wf-rf-output { justify-content: space-between; }
+.wf-rf-stem { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+.wf-rf-kind { font-size: 9px; letter-spacing: .08em; color: var(--sl-color-gray-3); }
+.wf-rf-port-divider { display: flex; justify-content: space-between; margin: 9px 16px 4px; padding-top: 10px; border-top: 1px solid var(--sl-color-gray-5); font-size: 9px; font-weight: 800; letter-spacing: .12em; color: var(--sl-color-gray-3); }
+.wf-rf-url { padding: 8px 15px 3px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--sl-color-gray-3); font-size: 10px; }
+.wf-rf-port .react-flow__handle {
+  border: 2px solid var(--sl-color-bg);
+  background: var(--wf-accent);
+  height: 13px; width: 13px; border-radius: 4px;
+  top: 50%; transform: translateY(-50%);
+  transition: box-shadow 130ms, scale 130ms;
+}
+.wf-rf-port .react-flow__handle-left { left: -7px; }
+.wf-rf-port .react-flow__handle-right { right: -7px; }
+.wf-rf-port .react-flow__handle:hover, .wf-rf-port .react-flow__handle.connectingto { scale: 1.25; box-shadow: 0 0 0 5px #34bda32c; }
+.wf-rf-input .react-flow__handle { background: var(--wf-source); }
+.wf-rf-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: 7px;
+  padding: 10px 13px; background: var(--sl-color-bg-nav); border-radius: 0 0 12px 12px;
+  border-top: 1px solid var(--sl-color-gray-5); color: var(--sl-color-gray-3); font-size: 10px;
+}
+.wf-rf-status { display: inline-flex; align-items: center; gap: 6px; text-transform: capitalize; }
+.wf-rf-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--sl-color-gray-3); }
+.wf-rf-status-ready i,.wf-rf-status-done i { background: var(--wf-accent); }
+.wf-rf-status-running i { background: #dca53a; }
+.wf-rf-status-failed i { background: #d46565; }
+.wf-rf-root .react-flow__controls, .wf-rf-root .react-flow__minimap {
+  box-shadow: 0 3px 14px #0002; border: 1px solid var(--sl-color-gray-5); border-radius: 8px; overflow: hidden;
+  background: var(--sl-color-bg);
+}
+.wf-rf-root .react-flow__controls-button { width: 32px; height: 32px; padding: 6px; border-radius: 0; border: 0; border-bottom: 1px solid var(--sl-color-gray-5); color: var(--sl-color-text); background: var(--sl-color-bg); border-bottom-color: var(--sl-color-gray-5); }
+.wf-rf-root .react-flow__controls-button svg { fill: currentColor; }
+.wf-rf-root .react-flow__minimap { width: 155px; height: 105px; }
+:root[data-theme="light"] .wf-flow { --wf-edge: #718494; --wf-minimap-mask: #e2e9ed99; }
+@media (max-width: 650px) {
+  .wf-rf-root .react-flow__minimap { display: none; }
+  .wf-rf-root .react-flow__controls { transform: scale(.9); transform-origin: bottom left; }
+}

@@ -7,7 +7,7 @@ description: Compose typed audio-stem DAGs with separate().pipe(), inspect the r
 
 Compose multiple separations as a **directed acyclic graph** (DAG). Every intermediate value represents a named stem, not a downloaded byte buffer. An audio output becomes the input of a later separation without requiring the user to fetch and upload it manually, **provided the MVSep output URL can be fetched by the upstream separation service**.
 
-Explore the [interactive workflow composer](/playground/) in the Playground's **Workflows** tab. It offers draggable nodes, output connectors, live model/option selectors, generated TypeScript, JSON import/export, and explicitly approved job execution.
+Explore the [interactive workflow composer](/playground/) in the Playground's **Workflows** tab. It uses **React Flow** for drag-to-connect named audio-stem ports, draggable nodes, pan/zoom, a minimap, fit-to-view, automatic layout, live model/option selectors, generated TypeScript, JSON import/export (including node positions), and explicitly approved job execution. Start a connection at an output handle on the right and drop it onto a model input handle on the left; invalid connections and dependency cycles are rejected. Model settings are in the right-hand inspector. Graph editing never submits paid jobs.
 
 ## Fluent syntax
 

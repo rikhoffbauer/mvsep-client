@@ -1,3 +1,5 @@
+import { mountWorkflowCanvas } from './workflow-canvas.tsx';
+import type { Connection } from '@xyflow/react';
 import { WorkflowGraph, Models, separate, modelFromAlgorithm } from '../../../src/workflow.ts';
 import type { WorkflowDocument, WorkflowNode, WorkflowSeparationNode, WorkflowRunResult, WorkflowEvent, WorkflowModel } from '../../../src/workflow.ts';
 import type { MvsepClient } from '../../../src/advanced.ts';
@@ -38,15 +40,12 @@ export function mountWorkflowDesigner(root: HTMLElement, hooks: DesignerHooks) {
   let graph = new WorkflowGraph();
   let catalog: SeparationAlgorithm[] = [];
   let selected = '';
-  let pending: { nodeId: string; stem: string } | null = null;
   let running: AbortController | null = null;
   let results: WorkflowRunResult['steps'] = {};
   const positions = new Map<string, { x: number; y: number }>();
   const states = new Map<string, WorkflowEvent>();
   let currentDoc: WorkflowDocument = graph.document;
-  const stage = $('wf-stage');
-  const cards = $('wf-cards');
-  const wires = $<SVGSVGElement>('wf-wires');
+  let revision = 0;
   const details = $('wf-details');
   const status = $('wf-status');
   function say(message: string, isError = false) { status.textContent = message; status.classList.toggle('wf-error', isError); hooks.onLog(message); }
@@ -60,7 +59,7 @@ export function mountWorkflowDesigner(root: HTMLElement, hooks: DesignerHooks) {
     } catch (error) { say(error instanceof Error ? error.message : String(error), true); renderDetails(); }
   }
   function hydrate(doc: WorkflowDocument) {
-    graph = new WorkflowGraph(doc); sync(); results = {}; states.clear(); pending = null;
+    graph = new WorkflowGraph(doc); sync(); results = {}; states.clear();
     if (!doc.nodes.some(node => node.id === selected)) selected = doc.nodes[0]?.id ?? '';
     layout(); render();
   }
@@ -73,109 +72,51 @@ export function mountWorkflowDesigner(root: HTMLElement, hooks: DesignerHooks) {
     for (const node of graph.validate()) {
       const col = depth.get(node.id) ?? 0;
       const row = indexes.get(col) ?? 0; indexes.set(col, row + 1);
-      positions.set(node.id, { x: 32 + col * 292, y: 52 + row * 235 });
+      // Custom stems vary in height; give each card enough vertical space to avoid overlap.
+      const siblings = graph.validate().filter(item => (depth.get(item.id) ?? 0) === col).slice(0, row);
+      const y = 48 + siblings.reduce((sum, item) => sum + (item.type === 'source' ? 190 : 168 + item.stems.length * 33) + 26, 0);
+      positions.set(node.id, { x: 48 + col * 350, y });
     }
   }
-  function updateWires() {
-    const maxX = Math.max(1170, ...[...positions.values()].map(p => p.x + 275));
-    const maxY = Math.max(700, ...[...positions.values()].map(p => p.y + 280));
-    stage.style.width = maxX + 'px'; stage.style.height = maxY + 'px';
-    wires.setAttribute('width', String(maxX)); wires.setAttribute('height', String(maxY));
-    wires.replaceChildren();
-    for (const node of currentDoc.nodes) {
-      if (node.type === 'source') continue;
-      const parent = positions.get(node.input.nodeId); const child = positions.get(node.id);
-      if (!parent || !child) continue;
-      const origin = cards.querySelector<HTMLElement>(`[data-node="${node.input.nodeId}"] [data-stem="${CSS.escape(node.input.stem)}"]`);
-      const dest = cards.querySelector<HTMLElement>(`[data-node="${node.id}"] .wf-node-input`);
-      const ox = parent.x + 246;
-      const oy = parent.y + (origin?.offsetTop ?? 102) + 12;
-      const dx = child.x;
-      const dy = child.y + (dest?.offsetTop ?? 97) + 11;
-      const middle = Math.max(60, (dx-ox)*.5);
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      line.setAttribute('d', `M ${ox} ${oy} C ${ox+middle} ${oy} ${dx-middle} ${dy} ${dx} ${dy}`);
-      line.setAttribute('fill', 'none'); line.setAttribute('stroke-width', '2');
-      line.setAttribute('class','wf-wire');
-      if (pending?.nodeId === node.input.nodeId && pending.stem === node.input.stem) line.classList.add('wf-wire-active');
-      wires.append(line);
-    }
+  function validateConnection(connection: Connection): boolean {
+    const { source, target, sourceHandle, targetHandle } = connection;
+    if (!source || !target || !sourceHandle || targetHandle !== 'input' || source === target) return false;
+    const origin = currentDoc.nodes.find(node => node.id === source);
+    const destination = currentDoc.nodes.find(node => node.id === target);
+    if (!origin || destination?.type !== 'separate') return false;
+    if (origin.type === 'source' ? sourceHandle !== 'source' : !origin.stems.includes(sourceHandle)) return false;
+    try {
+      const doc = structuredClone(currentDoc);
+      const node = doc.nodes.find(node => node.id === target);
+      if (node?.type !== 'separate') return false;
+      node.input = { nodeId: source, stem: sourceHandle };
+      new WorkflowGraph(doc);
+      return true;
+    } catch { return false; }
   }
-  function drawNode(node: WorkflowNode): HTMLElement {
-    const element = createEl('article', 'wf-node');
-    element.dataset.node = node.id;
-    if (selected === node.id) element.classList.add('wf-selected');
-    const position = positions.get(node.id) ?? { x: 20, y: 20 };
-    element.style.transform = `translate(${position.x}px, ${position.y}px)`;
-    const header = createEl('header','wf-node-head');
-    header.append(createEl('span','wf-node-type', node.type === 'source' ? 'AUDIO INPUT' : 'SEPARATION'));
-    const title = createEl('strong', '', node.label);
-    header.append(title);
-    element.append(header);
-    const body = createEl('div','wf-node-body');
-    if (node.type === 'source') {
-      const source = createEl('div','wf-node-url',node.url);
-      body.append(source);
-      const port = createEl('button','wf-port wf-out','Audio');
-      port.dataset.stem = 'source'; port.type = 'button';
-      port.title = 'Click to select as input for a model';
-      port.addEventListener('click', event => { event.stopPropagation(); connectFrom(node.id,'source'); });
-      body.append(port);
-    } else {
-      const port = createEl('button','wf-port wf-node-input', `${node.input.stem} ← ${currentDoc.nodes.find(n => n.id === node.input.nodeId)?.label ?? '?'}`);
-      port.title = 'Click to connect selected output here'; port.type = 'button';
-      port.addEventListener('click', event => { event.stopPropagation(); if (pending) connectTo(node.id); else { selected=node.id; render(); } });
-      body.append(port);
-      const modelTag = createEl('div','wf-node-model', `MVSep #${node.algorithmId}`); body.append(modelTag);
-      const portlist = createEl('div','wf-ports');
-      for (const stem of node.stems.slice(0,20)) {
-        const output = createEl('button','wf-port wf-out',stem);
-        output.type = 'button'; output.dataset.stem = stem;
-        output.title = `Connect ${stem} to a downstream model`;
-        output.addEventListener('click', event => { event.stopPropagation(); connectFrom(node.id,stem); });
-        portlist.append(output);
+  const canvas = mountWorkflowCanvas($('wf-canvas'), {
+    select(id) { selected = id; render(); },
+    position(id, position) { positions.set(id, position); },
+    validate: validateConnection,
+    connect(connection) {
+      if (!validateConnection(connection)) {
+        say('Invalid connection: check source stem, target input, and dependency cycles.', true);
+        return;
       }
-      body.append(portlist);
-    }
-    element.append(body);
-    const badge = createEl('div','wf-node-badge');
-    const state = states.get(node.id);
-    badge.textContent = state ? state.state + (state.hash ? ' · '+state.hash.slice(0,10) : '') : node.type === 'source' ? 'Source' : 'Not run';
-    if (state) badge.classList.add('wf-state-'+state.state);
-    element.append(badge);
-    element.addEventListener('click', () => { selected=node.id; render(); });
-    header.addEventListener('pointerdown', e => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      const startX=e.clientX,startY=e.clientY,start={...position};
-      header.setPointerCapture(e.pointerId);
-      const move = (event: PointerEvent) => {
-        const x=Math.max(5,start.x+event.clientX-startX), y=Math.max(5,start.y+event.clientY-startY);
-        positions.set(node.id,{x,y});element.style.transform=`translate(${x}px, ${y}px)`; updateWires();
-      };
-      const stop = () => { header.removeEventListener('pointermove',move); header.removeEventListener('pointerup',stop); header.removeEventListener('pointercancel',stop); };
-      header.addEventListener('pointermove',move);header.addEventListener('pointerup',stop);header.addEventListener('pointercancel',stop);
-    });
-    return element;
-  }
-  function connectFrom(nodeId: string, stem: string) {
-    pending = { nodeId, stem };
-    say(`Selected output ${stem}. Click a downstream node's input connector.`);
-    render();
-  }
-  function connectTo(nodeId: string) {
-    if (!pending) return;
-    const connection = {...pending}; pending = null;
-    edit(doc => {
-      const target = doc.nodes.find(n => n.id === nodeId);
-      if (!target || target.type === 'source') throw Error('Connect outputs to a separation node');
-      target.input = connection;
-    });
-  }
+      edit(doc => {
+        const node = doc.nodes.find(node => node.id === connection.target);
+        if (node?.type !== 'separate') throw Error('A separation node must be the destination.');
+        node.input = { nodeId: connection.source!, stem: connection.sourceHandle! };
+      });
+      selected = connection.target!;
+      render();
+    },
+    connectionRejected() { say('Connection rejected: only compatible source stems can feed model inputs, and cycles are forbidden.', true); },
+  });
   function render() {
-    cards.replaceChildren(...currentDoc.nodes.map(drawNode));
-    updateWires(); renderDetails(); renderCode();
-    $<HTMLButtonElement>('wf-run').disabled = Boolean(running) || currentDoc.nodes.every(n=>n.type==='source');
+    canvas.render({ document: currentDoc, positions, states, selected, revision: ++revision });
+    renderDetails(); renderCode();
+    $<HTMLButtonElement>('wf-run').disabled = Boolean(running) || currentDoc.nodes.every(n => n.type === 'source');
   }
   function label(id: string, title: string): HTMLElement { const item=createEl('label','wf-field');item.append(createEl('span','',title)); const input=document.createElement('input');input.id=id;item.append(input);return item; }
   function chooseInput(node: WorkflowSeparationNode) {
@@ -284,6 +225,18 @@ export function mountWorkflowDesigner(root: HTMLElement, hooks: DesignerHooks) {
     lines.push('','// Use any outputHandle.graph.document to inspect or export the DAG.', '// await outputHandle.graph.run(client, { allowPaid: true, confirmSubmit: ... });');
     $<HTMLElement>('wf-code').textContent=lines.join('\n');
   }
+  function exportLayout() {
+    return { positions: Object.fromEntries(currentDoc.nodes.map(node => [node.id, positions.get(node.id) ?? {x: 48, y: 48}])) };
+  }
+  function restoreLayout(layout?: { positions?: Record<string, {x: number; y: number}> }) {
+    if (!layout?.positions) return;
+    for (const node of currentDoc.nodes) {
+      const p = layout.positions[node.id];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y) && Math.abs(p.x) < 1_000_000 && Math.abs(p.y) < 1_000_000)
+        positions.set(node.id, {x:p.x, y:p.y});
+    }
+    render(); canvas.fit();
+  }
   function newSource() {
     const url = prompt('Public HTTPS audio URL:', defaultSource);
     if(url===null) return;
@@ -299,11 +252,11 @@ export function mountWorkflowDesigner(root: HTMLElement, hooks: DesignerHooks) {
     const available: Array<{node:WorkflowNode;stem:string}> = [];
     for(const node of currentDoc.nodes) for(const stem of node.type==='source'?['source']:node.stems) available.push({node,stem});
     if(!available.length){say('Add an audio source first',true);return;}
-    const chosen=pending ?? (selected && currentDoc.nodes.some(n=>n.id===selected) ?
+    const chosen=selected && currentDoc.nodes.some(n=>n.id===selected) ?
       {nodeId:selected,stem:currentDoc.nodes.find(n=>n.id===selected)?.type==='source' ? 'source' : (currentDoc.nodes.find(n=>n.id===selected) as WorkflowSeparationNode).stems[0] ?? 'output'} :
-      {nodeId:available.at(-1)!.node.id,stem:available.at(-1)!.stem});
+      {nodeId:available.at(-1)!.node.id,stem:available.at(-1)!.stem};
     const parent=graph.audio(chosen.nodeId,chosen.stem);
-    const port=graph.add(parent,definition); pending=null; selected=Object.values(port)[0]!.nodeId;sync();layout();render();
+    const port=graph.add(parent,definition); selected=Object.values(port)[0]!.nodeId;sync();layout();render();
     say('Added '+definition.name+' after '+chosen.stem+'.');
   }
   function example() {
@@ -348,22 +301,22 @@ export function mountWorkflowDesigner(root: HTMLElement, hooks: DesignerHooks) {
   $('wf-add-model').addEventListener('click',appendModel);
   $('wf-load-catalog').addEventListener('click',()=>void loadCatalog());
   $('wf-sample').addEventListener('click',example);
-  $('wf-layout').addEventListener('click',()=>{layout();render();});
+  $('wf-layout').addEventListener('click',()=>{layout();render();canvas.fit();});
   $('wf-run').addEventListener('click',()=>void run());
   $('wf-stop').addEventListener('click',()=>{running?.abort();say('Cancelling local wait. Already accepted MVSep jobs may still run.');});
-  $('wf-export').addEventListener('click',()=>download('mvsep-workflow.json',JSON.stringify(graph.document,null,2)));
+  $('wf-export').addEventListener('click',()=>download('mvsep-workflow.json',JSON.stringify({graph:graph.document,layout:exportLayout()},null,2)));
   $('wf-copy-code').addEventListener('click',()=>void navigator.clipboard.writeText($('wf-code').textContent??''));
   $('wf-import').addEventListener('click',()=>{try{
-    const imported=JSON.parse($<HTMLTextAreaElement>('wf-import-json').value) as WorkflowDocument | { graph:WorkflowDocument;steps:WorkflowRunResult['steps'] };
+    const imported=JSON.parse($<HTMLTextAreaElement>('wf-import-json').value) as WorkflowDocument | { graph:WorkflowDocument;steps?:WorkflowRunResult['steps'];layout?:{positions?:Record<string,{x:number;y:number}>} };
     if ('graph' in imported) {
-      hydrate(imported.graph); results=structuredClone(imported.steps??{});
+      hydrate(imported.graph); restoreLayout(imported.layout); results=structuredClone(imported.steps??{});
       say('Workflow and completed-step checkpoint imported. Verify input URLs before resuming.');
     } else { hydrate(imported); say('Workflow imported'); }
   }
     catch(error){say('Import failed: '+(error instanceof Error?error.message:String(error)),true);}});
-  $('wf-export-results').addEventListener('click',()=>download('mvsep-workflow-results.json',JSON.stringify({graph:graph.document,steps:results},null,2)));
+  $('wf-export-results').addEventListener('click',()=>download('mvsep-workflow-results.json',JSON.stringify({graph:graph.document,steps:results,layout:exportLayout()},null,2)));
   $<HTMLButtonElement>('wf-stop').disabled=true;
   for (const m of builtins) $<HTMLSelectElement>('wf-model-picker').add(new Option(m.name+' (#'+m.id+')',String(m.id)));
   example();
-  return { disconnect() { running?.abort(); }, refreshCatalog: loadCatalog };
+  return { disconnect() { running?.abort(); }, refreshCatalog: loadCatalog, fit() { canvas.fit(); } };
 }
