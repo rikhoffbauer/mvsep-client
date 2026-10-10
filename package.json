@@ -10,15 +10,38 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./browser": { "types": "./dist/browser.d.ts", "import": "./dist/browser.js" },
-    "./workflow": { "types": "./dist/workflow.d.ts", "import": "./dist/workflow.js" },
-    "./batch": { "types": "./dist/batch.d.ts", "import": "./dist/batch.js" },
-    "./local-cache": { "types": "./dist/local-cache.d.ts", "import": "./dist/local-cache.js" },
-    "./diagnostics": { "types": "./dist/diagnostics.d.ts", "import": "./dist/diagnostics.js" },
-    "./webhooks": { "types": "./dist/webhooks.d.ts", "import": "./dist/webhooks.js" },
-    "./metadata-cache": { "types": "./dist/metadata-cache.d.ts", "import": "./dist/metadata-cache.js" }
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./workflow": {
+      "types": "./dist/workflow.d.ts",
+      "import": "./dist/workflow.js"
+    },
+    "./batch": {
+      "types": "./dist/batch.d.ts",
+      "import": "./dist/batch.js"
+    },
+    "./local-cache": {
+      "types": "./dist/local-cache.d.ts",
+      "import": "./dist/local-cache.js"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics.d.ts",
+      "import": "./dist/diagnostics.js"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks.d.ts",
+      "import": "./dist/webhooks.js"
+    },
+    "./metadata-cache": {
+      "types": "./dist/metadata-cache.d.ts",
+      "import": "./dist/metadata-cache.js"
+    }
   },
-  "bin": { "mvsep": "./dist/cli.js" },
+  "bin": {
+    "mvsep": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "README.md",
@@ -26,6 +49,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "models:update": "node scripts/update-models.mjs",
     "check": "tsc --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",
     "build:verify": "npm run build && git diff --exit-code -- dist",
@@ -46,5 +70,8 @@
     "typescript",
     "bun"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15"
+  }
 }

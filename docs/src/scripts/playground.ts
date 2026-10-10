@@ -1,5 +1,6 @@
 import { MvsepClient } from '../../../src/browser.ts';
-import { mountWorkflowDesigner } from './workflow-designer.ts';
+// Load the React editor after browser initialization. Static imports execute before
+// page setup and can prevent every playground tab from working if React fails.
 import type { MvsepProgressEvent, SeparationAlgorithm } from '../../../src/types.ts';
 
 const root = document.querySelector<HTMLElement>('.pg');
@@ -68,7 +69,7 @@ function init(root: HTMLElement) {
       }
     }catch(error){if(version===optionGeneration){optionRoot.textContent='Could not load model options: '+(error instanceof Error?error.message:String(error));}}
   }
-  let designer: ReturnType<typeof mountWorkflowDesigner> | null = null;
+  let designer: ReturnType<(typeof import('./workflow-designer.ts'))['mountWorkflowDesigner']> | null = null;
   const eventList = $('pg-events');
   const keyList = $('pg-keys');
   const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-tab]'));
@@ -342,9 +343,31 @@ function init(root: HTMLElement) {
     }
   }
   root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button => button.addEventListener('click', () => { void execute(button.dataset.action!); }));
-  designer = mountWorkflowDesigner(root, {
-    client: () => client,
-    onLog: message => log('[graph] ' + message),
-    onResult: (name, value) => result(name, value, performance.now()),
+  // This playground is initialized by an Astro <script>, not a hydrated React
+  // island. The Vite React plugin therefore needs its development preamble
+  // before the editor's module is evaluated. Keep tabs and API forms usable
+  // even if the optional visual editor cannot load.
+  void (async () => {
+    if (import.meta.env.DEV) {
+      const refreshPath = '/@react-refresh';
+      const runtime = await import(/* @vite-ignore */ refreshPath);
+      runtime.default.injectIntoGlobalHook(window);
+      Object.assign(window, {
+        $RefreshReg$: () => {},
+        $RefreshSig$: () => (type: unknown) => type,
+        __vite_plugin_react_preamble_installed__: true,
+      });
+    }
+    const { mountWorkflowDesigner } = await import('./workflow-designer.ts');
+    designer = mountWorkflowDesigner(root, {
+      client: () => client,
+      onLog: message => log('[graph] ' + message),
+      onResult: (name, value) => result(name, value, performance.now()),
+    });
+  })().catch(error => {
+    log('Workflow editor failed to initialize: ' + (error instanceof Error ? error.message : String(error)));
+    const status = root.querySelector('#wf-status');
+    if (status) status.textContent = 'Workflow editor could not load. See console for details.';
+    console.error('Workflow editor initialization failed:', error);
   });
 }

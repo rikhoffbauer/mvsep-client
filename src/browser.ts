@@ -8,3 +8,5 @@ export * from "./extended-types.js";
 export * from "./metadata.js";
 
 export * from "./workflow.js";
+export { createAudioProcessor, ffmpegArgs } from "./audio-processing.js";
+export type { AudioEffect, AudioProcessingRequest, AudioProcessor } from "./audio-processing.js";

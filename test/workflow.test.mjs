@@ -99,3 +99,34 @@ test('resume completed job with recorded outputs does not resubmit upstream', as
   assert.equal(calls.length,1);assert.equal(calls[0].url,'https://example.com/d');
   assert.equal(out.steps[upstream].hash,'old');
 });
+
+test('generated catalog covers all published model IDs with distinct named stems', () => {
+  const models = Object.values(Models);
+  assert.equal(models.length, 122);
+  assert.equal(new Set(models.map(model => model.id)).size, 122);
+  assert.equal(models.filter(model => model.active).length, 121);
+  assert.equal(models.filter(model => model.stems.length).length, 117);
+  assert.equal(models.filter(model => model.profiles?.length).length, 37);
+  assert.deepEqual(Models.MVSep_Piano?.stems ?? Models.MVSepPiano.stems, ['piano', 'other']);
+  assert.equal(Models.Mega53StemModel.stems.length, 52); // API currently publishes 52 keys despite the name
+  assert.deepEqual(Models.Whisper.stems, []);
+});
+
+test('option-dependent output ports reflect observed MVSep variants', () => {
+  const demucs = separate(Models.Demucs4_HT, { add_opt1: 2 }).pipe(song);
+  const demucsNode = demucs.drums.graph.document.nodes.find(n=>n.type==='separate');
+  assert.ok(demucsNode.stems.includes('piano'));
+  assert.ok(demucsNode.stems.includes('guitar'));
+  const six = demucs.drums.pipe(separate(Models.DrumSep, { add_opt1: 6 }));
+  const drumNode = six.kick.graph.document.nodes.find(n=>n.type==='separate'&&n.algorithmId===37);
+  assert.ok(drumNode.stems.includes('cymbals'));
+  assert.ok(!drumNode.stems.includes('hh'));
+  assert.throws(() => six.hh, /not available for this option configuration/);
+  const synth = demucs.other.pipe(separate(Models.MVSep_Synth, { add_opt1: 1 }));
+  const synthNode = synth.synth.graph.document.nodes.find(n=>n.type==='separate'&&n.algorithmId===88);
+  assert.ok(synthNode.stems.includes('instrum'));
+  assert.ok(synthNode.stems.includes('vocals'));
+  const defaultDrums = demucs.drums.pipe(separate(Models.DrumSep));
+  const defaultNode = defaultDrums.kick.graph.document.nodes.at(-1);
+  assert.ok(defaultNode.stems.includes('hh'));
+});

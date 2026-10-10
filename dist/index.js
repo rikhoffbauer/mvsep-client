@@ -6,4 +6,5 @@ export * from "./extended-types.js";
 export * from "./metadata.js";
 export { TokenBucketRateLimiter, Semaphore } from "./rate-limiter.js";
 export * from "./workflow.js";
+export { createAudioProcessor, ffmpegArgs } from "./audio-processing.js";
 //# sourceMappingURL=index.js.map

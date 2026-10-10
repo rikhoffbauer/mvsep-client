@@ -1,13 +1,15 @@
 import { getOutputFiles, prepareSeparation } from './metadata.js';
+import { generatedModels } from './models.generated.js';
+import { stemsForModel } from './model-outputs.js';
+import { createAudioProcessor, ffmpegArgs } from './audio-processing.js';
+export { modelFromAlgorithm } from './algorithm-model.js';
+export { stemsForModel } from './model-outputs.js';
+export { parseModelSelector, rankModels, selectModels } from './model-selector.js';
 function model(id, name, stems) {
     return Object.freeze({ id, name, stems: Object.freeze([...stems]) });
 }
-/** Known port hints, not promises: actual stem names can change with upstream model options. */
-export const Models = Object.freeze({
-    Demucs4_HT: model(20, 'Demucs4 HT', ['drums', 'vocals', 'other', 'bass']),
-    DrumSep: model(37, 'DrumSep', ['hh', 'hihat', 'crash', 'ride', 'kick', 'cymbals', 'crash_ride', 'toms', 'snare']),
-    MVSep_Synth: model(88, 'MVSep Synth', ['synth', 'other']),
-});
+/** Generated model catalog; refresh with bun run models:update. */
+export const Models = Object.freeze(generatedModels);
 function assertId(id) { if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id))
     throw new TypeError('Invalid node ID: ' + id); }
 function normalizeStem(name) {
@@ -55,16 +57,59 @@ export class WorkflowGraph {
         this.nodes.push({ id, type: 'source', label, url });
         return new WorkflowAudio(this, id, 'source');
     }
+    /** File bytes are supplied separately to run(files), never embedded in JSON. */
+    sourceFile(fileName, label = 'Audio file') {
+        if (!fileName.trim() || fileName.length > 200 || /[\x00-\x1f/\\]/.test(fileName))
+            throw new TypeError('Invalid local audio filename');
+        const id = this.id();
+        this.nodes.push({ id, type: 'source', label, url: '', fileName });
+        return new WorkflowAudio(this, id, 'source');
+    }
+    /** Explicitly select a single final audio artifact. Only connected exports are returned. */
+    output(input, label) {
+        if (input.graph !== this || !label.trim())
+            throw new TypeError('Invalid output selection');
+        if (this.nodes.some(node => node.type === 'output' && node.label === label))
+            throw new TypeError('Final Output node labels must be unique');
+        const id = this.id();
+        this.nodes.push({ id, type: 'output', label, input: { nodeId: input.nodeId, stem: input.stem } });
+        try {
+            this.validate();
+        }
+        catch (error) {
+            this.nodes.pop();
+            throw error;
+        }
+        return id;
+    }
+    /** Create an audio filter node that executes with WASM or native FFmpeg. */
+    process(effect, inputs, label = 'FFmpeg audio') {
+        if (inputs.some(input => input.graph !== this))
+            throw new TypeError('Cannot connect different workflow graphs');
+        // Shared argument construction also checks effect parameters and input arity.
+        ffmpegArgs(effect, inputs.map((_, i) => 'input-' + i + '.wav'), 'output.wav');
+        const id = this.id();
+        this.nodes.push({ id, type: 'process', label, effect: structuredClone(effect),
+            inputs: inputs.map(input => ({ nodeId: input.nodeId, stem: input.stem })), stems: ['audio'] });
+        try {
+            this.validate();
+        }
+        catch (error) {
+            this.nodes.pop();
+            throw error;
+        }
+        return new WorkflowAudio(this, id, 'audio');
+    }
     /** Add a model node with an already defined audio input. */
     add(input, definition, options = {}) {
         if (input.graph !== this)
             throw new TypeError('Cannot connect different workflow graphs');
         const node = {
             id: this.id(), type: 'separate', label: definition.name, algorithmId: definition.id,
-            options: { ...options }, input: { nodeId: input.nodeId, stem: input.stem }, stems: [...definition.stems],
+            options: { ...options }, input: { nodeId: input.nodeId, stem: input.stem }, stems: [...stemsForModel(definition, options)],
         };
         this.nodes.push(node);
-        return outputPorts(this, node.id, definition.stems);
+        return outputPorts(this, node.id, node.stems, definition.stems);
     }
     addNode(input, modelId, label, stems, options = {}) {
         return this.add(input, model(modelId, label, stems), options);
@@ -83,8 +128,10 @@ export class WorkflowGraph {
             if (typeof node.label !== 'string')
                 throw new TypeError('Invalid node label');
             if (node.type === 'source') {
-                if (typeof node.url !== 'string' || !/^https:\/\/[^\s/]+/i.test(node.url))
-                    throw new TypeError('Invalid audio source URL');
+                if (typeof node.url !== 'string' ||
+                    (node.fileName ? node.url !== '' || !node.fileName.trim() || node.fileName.length > 200 ||
+                        /[\x00-\x1f/\\]/.test(node.fileName) : !/^https:\/\/[^\s/]+/i.test(node.url)))
+                    throw new TypeError('Invalid audio source URL or file name');
             }
             else if (node.type === 'separate') {
                 if (!Number.isSafeInteger(node.algorithmId) || node.algorithmId < 0 || !node.input ||
@@ -95,9 +142,23 @@ export class WorkflowGraph {
                     Object.keys(node.options).some(key => !/^[a-zA-Z0-9_ ]{1,80}$/.test(key)))
                     throw new TypeError('Invalid separation node');
             }
+            else if (node.type === 'output') {
+                if (!node.input || typeof node.input.nodeId !== 'string' || typeof node.input.stem !== 'string' || !node.label.trim())
+                    throw new TypeError('Invalid output node');
+            }
+            else if (node.type === 'process') {
+                if (!Array.isArray(node.inputs) || !Array.isArray(node.stems) || node.stems.length !== 1 ||
+                    node.stems[0] !== 'audio' || !node.effect || typeof node.effect !== 'object' ||
+                    node.inputs.some(input => !input || typeof input.nodeId !== 'string' || typeof input.stem !== 'string'))
+                    throw new TypeError('Invalid FFmpeg processing node');
+                ffmpegArgs(node.effect, node.inputs.map((_, i) => 'input-' + i + '.wav'), 'output.wav');
+            }
             else
                 throw new TypeError('Unknown node type');
         }
+        const names = nodes.filter(n => n.type === 'output').map(n => n.label);
+        if (new Set(names).size !== names.length)
+            throw new TypeError('Final Output node labels must be unique');
         this.nodes = nodes;
         this.validate();
         this.nextId = Math.max(1, ...nodes.map(n => Number(n.id.replace(/^n/, '')) || 0)) + 1;
@@ -129,14 +190,18 @@ export class WorkflowGraph {
             if (!node)
                 throw new TypeError('Unknown dependency: ' + id);
             visiting.add(id);
-            if (node.type === 'separate') {
-                const parent = ids.get(node.input.nodeId);
+            const parents = node.type === 'separate' || node.type === 'output' ? [node.input] :
+                node.type === 'process' ? node.inputs : [];
+            for (const input of parents) {
+                const parent = ids.get(input.nodeId);
                 if (!parent)
-                    throw new TypeError('Missing upstream node: ' + node.input.nodeId);
-                if (parent.type === 'source' && node.input.stem !== 'source')
+                    throw new TypeError('Missing upstream node: ' + input.nodeId);
+                if (parent.type === 'source' && input.stem !== 'source')
                     throw new TypeError('Audio source exposes only the "source" output');
-                if (parent.type === 'separate' && !parent.stems.includes(node.input.stem))
-                    throw new TypeError(`Upstream model does not declare output "${node.input.stem}"`);
+                if ((parent.type === 'separate' || parent.type === 'process') && !parent.stems.some(stem => stem === input.stem))
+                    throw new TypeError('Upstream node does not declare output "' + input.stem + '"');
+                if (parent.type === 'output')
+                    throw new TypeError('Output nodes cannot feed downstream audio');
                 visit(parent.id);
             }
             visiting.delete(id);
@@ -149,15 +214,21 @@ export class WorkflowGraph {
     }
     async run(executor, options = {}) {
         const ordered = this.validate();
-        if (!options.allowPaid)
-            throw new Error('Workflow execution can incur charges; pass allowPaid: true explicitly');
-        if (!options.confirmSubmit)
-            throw new Error('Provide confirmSubmit callback to authorize every new job');
+        if (ordered.some(node => node.type === 'separate')) {
+            if (!options.allowPaid)
+                throw new Error('Workflow execution can incur charges; pass allowPaid: true explicitly');
+            if (!options.confirmSubmit)
+                throw new Error('Provide confirmSubmit callback to authorize every new job');
+        }
         const count = options.concurrency ?? 1;
         if (!Number.isSafeInteger(count) || count < 1 || count > 8)
             throw new TypeError('concurrency must be 1..8');
         const steps = Object.create(null);
         const outcomes = new Map();
+        const localResults = new Map();
+        const selected = Object.create(null);
+        let processor = options.audioProcessor;
+        let ownsProcessor = false;
         let active = 0;
         const waiting = [];
         const acquire = async () => { if (active >= count)
@@ -167,17 +238,82 @@ export class WorkflowGraph {
             options.onEvent?.(event);
         }
         catch { /* observer must not hide accepted job */ } };
+        const binary = async (part) => part.data instanceof Blob ?
+            new Uint8Array(await part.data.arrayBuffer()) : new Uint8Array(part.data);
+        const fetchAudio = options.fetchAudio ?? (async (url, signal) => {
+            const response = await fetch(url, { ...(signal ? { signal } : {}) });
+            if (!response.ok)
+                throw new Error('Could not download audio: HTTP ' + response.status);
+            return new Uint8Array(await response.arrayBuffer());
+        });
+        const asset = (input) => {
+            const upstream = ordered.find(n => n.id === input.nodeId);
+            if (!upstream)
+                throw new Error('Missing upstream ' + input.nodeId);
+            if (upstream.type === 'source') {
+                if (upstream.fileName) {
+                    const part = options.files?.[upstream.id];
+                    if (!part)
+                        throw new Error('Reattach local audio file for ' + upstream.label);
+                    return { file: part };
+                }
+                return { url: upstream.url };
+            }
+            if (upstream.type === 'process') {
+                const data = localResults.get(upstream.id);
+                if (!data)
+                    throw new Error('Missing FFmpeg output ' + upstream.id);
+                return { data };
+            }
+            if (upstream.type === 'separate') {
+                const result = steps[upstream.id];
+                if (!result)
+                    throw new Error('Missing upstream separation result ' + upstream.id);
+                return { url: resolveStem(result.outputs, input.stem) };
+            }
+            throw new Error('Output nodes cannot feed downstream audio');
+        };
         for (const node of ordered) {
             if (node.type === 'source')
                 continue;
             outcomes.set(node.id, (async () => {
-                const dependency = outcomes.get(node.input.nodeId);
-                if (dependency)
-                    await dependency;
+                const parents = node.type === 'process' ? node.inputs : [node.input];
+                await Promise.all(parents.map(input => outcomes.get(input.nodeId)));
                 if (options.signal?.aborted)
                     throw new Error('Workflow aborted');
-                const upstream = ordered.find(n => n.id === node.input.nodeId);
-                const url = upstream.type === 'source' ? upstream.url : resolveStem(steps[upstream.id].outputs, node.input.stem);
+                if (node.type === 'output') {
+                    const selectedAsset = asset(node.input);
+                    selected[node.label] = {
+                        from: { ...node.input },
+                        ...(selectedAsset.url ? { url: selectedAsset.url } : {}),
+                        ...(selectedAsset.data ? { data: selectedAsset.data } : {}),
+                        ...(selectedAsset.file ? { data: await binary(selectedAsset.file) } : {}),
+                    };
+                    emit({ nodeId: node.id, state: 'done' });
+                    return;
+                }
+                if (node.type === 'process') {
+                    emit({ nodeId: node.id, state: 'queued' });
+                    const files = await Promise.all(node.inputs.map(async (input) => {
+                        const item = asset(input);
+                        const data = item.data ?? (item.file ? await binary(item.file) : await fetchAudio(item.url, options.signal));
+                        return { data, extension: item.file?.filename?.split('.').pop() ?? (item.url?.split('?')[0]?.split('.').pop() ?? 'wav') };
+                    }));
+                    processor ??= await createAudioProcessor();
+                    if (!options.audioProcessor)
+                        ownsProcessor = true;
+                    emit({ nodeId: node.id, state: 'running' });
+                    try {
+                        localResults.set(node.id, await processor.process({ effect: node.effect, inputs: files, ...(options.signal ? { signal: options.signal } : {}) }));
+                        emit({ nodeId: node.id, state: 'done', outputs: { audio: 'local:wav' } });
+                    }
+                    catch (e) {
+                        emit({ nodeId: node.id, state: 'failed', error: e instanceof Error ? e.message : String(e) });
+                        throw e;
+                    }
+                    return;
+                }
+                const upstreamAsset = asset(node.input);
                 if (options.completed?.[node.id]) {
                     const prior = options.completed[node.id];
                     if (!prior.hash || !Object.keys(prior.outputs).length || Object.values(prior.outputs).some(url => typeof url !== 'string' || !/^https?:\/\//.test(url)))
@@ -195,8 +331,10 @@ export class WorkflowGraph {
                     const algorithm = await executor.getAlgorithm(node.algorithmId, { signal: options.signal });
                     if (algorithm.audio_widget !== 'single_upload')
                         throw new Error('Pipeline execution requires a single-upload algorithm');
-                    const prepared = prepareSeparation({ algorithm, input: { url }, fields: node.options });
-                    const approved = await options.confirmSubmit(node, url);
+                    const uploaded = upstreamAsset.file ?? (upstreamAsset.data ?
+                        { data: upstreamAsset.data, filename: 'processed.wav', contentType: 'audio/wav' } : undefined);
+                    const prepared = prepareSeparation({ algorithm, input: uploaded ? { audiofile: uploaded } : { url: upstreamAsset.url }, fields: node.options });
+                    const approved = await options.confirmSubmit(node, upstreamAsset.url ?? '(local audio upload)');
                     if (!approved)
                         throw new Error('Submission not authorized for ' + node.label);
                     emit({ nodeId: node.id, state: 'running' });
@@ -223,11 +361,17 @@ export class WorkflowGraph {
                 }
             })());
         }
-        const settled = await Promise.allSettled([...outcomes.values()]);
-        const firstFailure = settled.find((s) => s.status === 'rejected');
-        if (firstFailure)
-            throw firstFailure.reason;
-        return { steps };
+        try {
+            const settled = await Promise.allSettled([...outcomes.values()]);
+            const firstFailure = settled.find((s) => s.status === 'rejected');
+            if (firstFailure)
+                throw firstFailure.reason;
+            return { steps, ...(Object.keys(selected).length ? { exports: selected } : {}) };
+        }
+        finally {
+            if (ownsProcessor)
+                await processor?.dispose?.();
+        }
     }
 }
 export class WorkflowAudio {
@@ -241,11 +385,17 @@ export class WorkflowAudio {
     }
     pipe(operation) { return operation.pipe(this); }
 }
-function outputPorts(graph, nodeId, stems) {
+function outputPorts(graph, nodeId, stems, declared) {
     const result = Object.create(null);
     for (const stem of stems)
         result[stem] = graph.audio(nodeId, stem);
-    return result;
+    return new Proxy(result, {
+        get(target, property, receiver) {
+            if (typeof property === 'string' && declared.includes(property) && !Object.hasOwn(target, property))
+                throw new TypeError('Output stem "' + property + '" is not available for this option configuration; available: ' + stems.join(', '));
+            return Reflect.get(target, property, receiver);
+        },
+    });
 }
 export class WorkflowOperation {
     definition;
@@ -263,8 +413,5 @@ export function separate(model, options = {}) {
     if (!Number.isSafeInteger(model.id) || model.id < 0)
         throw new TypeError('Invalid model ID');
     return new WorkflowOperation(model, options);
-}
-export function modelFromAlgorithm(algorithm, stems) {
-    return model(algorithm.render_id, algorithm.name, stems);
 }
 //# sourceMappingURL=workflow.js.map

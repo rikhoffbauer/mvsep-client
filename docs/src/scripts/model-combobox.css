@@ -1,0 +1,14 @@
+.mc-root{position:relative;display:flex;min-width:210px;min-height:39px;max-width:440px;flex:1;border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);border-radius:8px;align-items:center;}
+.mc-root:focus-within{border-color:var(--sl-color-text-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--sl-color-accent),transparent 82%);}
+.mc-input{background:transparent!important;border:0!important;outline:none!important;flex:1;width:100%;min-width:0;box-shadow:none!important;color:var(--sl-color-text)!important;padding:8px 10px!important;font-size:12px!important;font-weight:500!important;}
+.mc-toggle{width:26px;height:33px;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;border-radius:5px!important;background:transparent!important;color:var(--sl-color-gray-3)!important;display:grid;place-items:center;}
+.mc-toggle:hover{color:var(--sl-color-text)!important;}
+.mc-popup{position:fixed;z-index:9999;max-height:min(365px,60vh);overflow-y:auto;background:var(--sl-color-bg);color:var(--sl-color-text);border:1px solid var(--sl-color-gray-5);border-radius:9px;box-shadow:0 12px 35px #0006;padding:5px;overscroll-behavior:contain;}
+.mc-popup[hidden]{display:none!important;}
+.mc-group{position:sticky;top:-5px;padding:9px 10px 5px;font-size:10px;font-weight:850;letter-spacing:.06em;background:var(--sl-color-bg-nav);color:var(--sl-color-text-accent);border-radius:5px;text-transform:uppercase;}
+.mc-option{display:block;width:100%;text-align:left!important;border-radius:5px!important;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--sl-color-text)!important;font-size:12px!important;line-height:1.4!important;padding:8px 10px!important;white-space:normal;}
+.mc-option:hover,.mc-option.mc-active{background:color-mix(in srgb,var(--sl-color-accent),transparent 86%)!important;}
+.mc-option[aria-selected=true]{font-weight:700;color:var(--sl-color-text-accent)!important;}
+.mc-empty{padding:14px 10px;color:var(--sl-color-gray-3);font-size:12px;}
+.wf-field .mc-root{max-width:none;width:100%;}
+@media(max-width:650px){.mc-root{width:100%;max-width:none;}}

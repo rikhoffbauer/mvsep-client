@@ -80,3 +80,33 @@
   .wf-rf-root .react-flow__minimap { display: none; }
   .wf-rf-root .react-flow__controls { transform: scale(.9); transform-origin: bottom left; }
 }
+
+.wf-auto-selector{display:flex;gap:5px;flex:1 1 325px;align-items:center}.wf-auto-selector input{width:100%;min-width:190px;font-size:12px;padding:8px 10px;border-radius:7px;border:1px solid var(--sl-color-gray-5);background:var(--sl-color-bg);color:var(--sl-color-text)}.wf-auto-selector button{white-space:nowrap}.wf-section #wf-selection-reason:empty{display:none}.wf-section #wf-selection-reason{margin:0 0 9px;line-height:1.6}
+/* React Flow v12 renders edges inside a positioned, intrinsically zero-sized SVG.
+   Give its edge layer a real viewport so paths stay visible in Chrome/WebKit,
+   including after the workflow pane first becomes visible. */
+.wf-rf-root .react-flow__edges {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.wf-rf-root .react-flow__edges > svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+/* Starlight's prose sibling-spacing selector adds margin-block-start to every
+   React Flow node after the first. This moves nodes without updating the
+   canvas' absolute edge endpoints, leaving wires above the visible handles. */
+.wf-rf-root .react-flow__node,
+.wf-rf-root .react-flow__edges,
+.wf-rf-root .react-flow__viewport > * {
+  margin: 0 !important;
+}
+.wf-rf-root .react-flow__edges > svg,
+.wf-rf-root .react-flow__edges > svg > g,
+.wf-rf-root .react-flow__node > * {
+  margin: 0 !important;
+}

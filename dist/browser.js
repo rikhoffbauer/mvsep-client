@@ -6,4 +6,5 @@ export * from "./types.js";
 export * from "./extended-types.js";
 export * from "./metadata.js";
 export * from "./workflow.js";
+export { createAudioProcessor, ffmpegArgs } from "./audio-processing.js";
 //# sourceMappingURL=browser.js.map

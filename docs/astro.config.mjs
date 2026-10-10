@@ -38,6 +38,7 @@ export default defineConfig({
           { slug: 'guides/cli' },
         ] },
         { label: 'API reference', items: [
+          { slug: 'reference/models' },
           { slug: 'reference/client' },
           { slug: 'reference/options' },
           { slug: 'reference/types' },

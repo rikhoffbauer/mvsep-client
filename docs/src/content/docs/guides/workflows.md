@@ -128,3 +128,65 @@ The visual editor can import both a workflow document and a `{ graph, steps }` c
 The document is versioned (`version: 1`) and contains sources, models, options, and directed stem connections. **No API keys are stored in it**. Each completed step records its hash and resolved stem URLs for optional later use. Those URLs can expire or be access-controlled; verify them before resuming. In a multi-key workflow, a job may be bound to the account that created it. For robust cross-restart recovery use stable account IDs and persisted handles as described in [API key rotation](/guides/api-key-rotation/).
 
 See the [offline runnable workflow example](https://github.com/rikhoffbauer/mvsep-client/blob/main/examples/workflow.ts), which tests the entire graph without submitting paid jobs.
+
+For the full current catalog of all published model IDs and named outputs, see [Supported models and output stems](/reference/models/). Most model output names are option-dependent hints rather than guaranteed files. Refresh the generated TypeScript catalog with `bun run models:update`.
+
+## Explicit exports, local uploads, and FFmpeg audio processing
+
+Terminal Output nodes select exactly which audio artifacts the workflow returns. Two models
+may produce the same stem name: the selected output records the **upstream node ID and stem**,
+not just the stem label. Intermediate stems are not automatically exported.
+
+```ts
+import { WorkflowGraph, Models } from '@rikhoffbauer/mvsep-client/workflow';
+
+const graph = new WorkflowGraph();
+const audio = graph.sourceFile('my-song.wav');
+const { vocals, other } = graph.add(audio, Models.Demucs4_HT);
+const quieter = graph.process({ type: 'gain', decibels: -3 }, [vocals], 'Quiet vocals');
+graph.output(quieter, 'Final vocals');
+graph.output(other, 'Instrumental');
+
+const results = await graph.run(client, {
+  allowPaid: true,
+  confirmSubmit: async () => confirm('Approve this MVSep separation?'),
+  // File bytes are intentionally not serialized in graph.document or exported JSON.
+  files: { [audio.nodeId]: { data: selectedFile, filename: 'my-song.wav' } },
+});
+console.log(results.exports); // only Final vocals and Instrumental
+```
+
+The Playground adds local audio with **Upload audio**, followed by model, FFmpeg effect,
+and Output nodes. You can also start with an HTTPS audio URL. Uploads are submitted to
+MVSep only after the corresponding paid-job confirmation; FFmpeg-only graphs require no
+MVSep credentials. Imported JSON graphs refer to a file by name, so you must **reattach the
+file** before executing them. Downloaded/processed audio is held in memory and can use
+substantial browser RAM.
+
+Supported FFmpeg effects include mixing multiple streams, subtracting an aligned stream
+(using negative mixing weight, i.e. inverted phase), phase inversion, gain, low/high-pass,
+and trimming. Subtraction requires both inputs to be time-aligned; it does not perform
+alignment automatically. Browser execution uses the single-thread `ffmpeg.wasm` core,
+which is downloaded at first use. On Node.js the same workflow uses the installed native
+`ffmpeg` executable. Remote audio URLs must be CORS-accessible for browser-side FFmpeg
+processing, or processed from a local file instead.
+
+## Automatic model selection
+
+```ts
+import { selectModels, rankModels } from '@rikhoffbauer/mvsep-client/workflow';
+
+const plan = selectModels('best[vocals+drums]');
+const alternatives = rankModels('cheapest[vocals+kick]');
+const forced = selectModels('best[piano+guitar]@20');
+```
+
+`best[...]` uses available **community vote metadata**, not a validated objective audio-quality
+benchmark. `cheapest[...]` compares public model price coefficients, not actual credit
+quotes; `fewest[...]` prioritizes fewer jobs. The selector can suggest up to two MVSep
+steps, includes required model options where output names vary, and explains which step
+supplies each requested stem. It never submits a job or bypasses paid-operation approval.
+The playground creates separate Output nodes for every requested stem when applying a plan.
+
+See [the generated model catalog](/reference/models/) for all current model names, categories,
+IDs, option profiles, and published output port hints.

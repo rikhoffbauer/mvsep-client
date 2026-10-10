@@ -25,13 +25,25 @@
           <span class="wf-pill">DAG · local draft</span>
         </div>
         <div class="wf-toolbar">
-          <button id="wf-add-source" type="button">+ Audio source</button>
-          <select id="wf-model-picker" aria-label="Algorithm for next node"></select>
+          <button id="wf-add-source" type="button">+ Audio URL</button>
+          <button id="wf-upload-source" type="button">+ Upload audio</button>
+          <input id="wf-source-file" type="file" accept="audio/*,.wav,.flac,.mp3,.ogg,.m4a,.aac,.aiff" hidden />
+          <button id="wf-add-output" type="button">+ Output</button>
+          <select id="wf-effect-picker" aria-label="FFmpeg effect">
+            <option value="mix">Mix stems</option><option value="subtract">Subtract stems</option>
+            <option value="invert">Phase invert</option><option value="gain">Gain</option>
+            <option value="lowpass">Low-pass</option><option value="highpass">High-pass</option>
+            <option value="trim">Trim</option>
+          </select>
+          <button id="wf-add-process" type="button">+ FFmpeg</button>
+          <div id="wf-model-picker" aria-label="Search models"></div>
           <button id="wf-add-model" class="pg-primary" type="button">+ Model</button>
           <button id="wf-load-catalog" type="button">Refresh models</button>
           <button id="wf-layout" type="button">Auto-layout</button>
           <button id="wf-sample" type="button">Example graph</button>
+          <div class="wf-auto-selector"><input id="wf-selector" type="text" autocomplete="off" spellcheck="false" aria-label="Automatic model selector expression" placeholder="best[vocals+drums+kick]" value="best[vocals+drums]" /><button id="wf-auto-select" type="button">Find models</button></div>
         </div>
+        <p id="wf-selection-reason" class="wf-note" aria-live="polite"></p>
         <div class="wf-compose">
           <div class="wf-board" id="wf-board"><div id="wf-canvas" class="wf-flow"></div></div>
           <aside id="wf-details" class="wf-details" aria-label="Selected node settings"></aside>
