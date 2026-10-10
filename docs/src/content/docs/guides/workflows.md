@@ -23,7 +23,7 @@ const { drums, vocals, other, bass } = separate(
 ).pipe(songAudio);
 
 // These branches both depend on the four-stem Demucs job.
-const { hh, crash, ride, kick, cymbals, crash_ride, toms, snare } =
+const { hh, crash, ride, kick, toms, snare } =
   drums.pipe(separate(Models.DrumSep, { add_opt2: 1 }));
 
 const { synth, other: synth_rest } =
