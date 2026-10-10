@@ -91,6 +91,9 @@ export async function createAudioProcessor(): Promise<AudioProcessor> {
     const { createBrowserAudioProcessor } = await import('./ffmpeg-browser.js');
     return createBrowserAudioProcessor();
   }
-  const { createNativeAudioProcessor } = await import('./ffmpeg-native.js');
+  // Keep the Node-only adapter outside browser bundles. Vite must not eagerly
+  // resolve node:fs, node:child_process, etc. when building the playground.
+  const nativeAdapterPath = './ffmpeg-native.js';
+  const { createNativeAudioProcessor } = await import(/* @vite-ignore */ nativeAdapterPath);
   return createNativeAudioProcessor();
 }

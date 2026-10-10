@@ -1,8 +1,19 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
+  // Playground imports the SDK source from ../src. Resolve browser-only
+  // dependencies from this site's own node_modules in isolated CI/Vercel
+  // builds, where the repository root dependencies are not installed.
+  vite: {
+    resolve: {
+      alias: {
+        '@ffmpeg/ffmpeg': fileURLToPath(new URL('./node_modules/@ffmpeg/ffmpeg/dist/esm/index.js', import.meta.url)),
+      },
+    },
+  },
   site: 'https://mvsep-client.vercel.app',
   base: '/',
   integrations: [
